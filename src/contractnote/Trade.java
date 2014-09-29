@@ -9,6 +9,8 @@ package contractnote;
  * @author admin
  */
 public class Trade {
+    String fileName;
+    String clientName;
     String contractNoteReference;
     String tradeDate;
     String tradeNumber;
