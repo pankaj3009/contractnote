@@ -99,7 +99,7 @@ public class Contractnote {
         if (fileName.contains("FO")) {
             //System.out.println(fileEntry.getName());
             int iClientName = 7;
-            int iTradeNumber = 0;
+            int iTradeNumber = 2;
             int iOrderTime = 1;
             int iExecutionTime = 3;
             int iSide = 4;
@@ -118,7 +118,7 @@ public class Contractnote {
                     reference = lines[i].split(" ")[3];
                 }
                 if (temp.length == 3 && temp[0].trim().equals("Trade") && temp[1].trim().equals("Date")) {
-                    contractDate = lines[i].split(" ")[2];
+                    contractDate = lines[i].split(" ")[2].replace("-", "");
                 }
                 if (temp.length > 2 && temp[0].equals("Client") && temp[1].equals("Name")) {
                     clientName = lines[i].substring(11);
@@ -129,12 +129,17 @@ public class Contractnote {
             for (int i = 0; i < lines.length; i++) {
                 String[] item = lines[i].split(" ");
                 boolean error = false;
-                if (isNumeric(item[0])) {
-                    if (getDouble(item[0]) > 10000000) {
+                //if (isNumeric(item[0])) {
+                    if (getDouble(item[0]) > 10000000||item[0].trim().equals("N/A")) {
                         if (item.length < 11) {
                             //broken format. print line and move on
-                            System.out.println("Error importing fileName:" + fileName + ",Line:" + lines[i]);
-                            error = true;
+                            String line=lines[i]+" "+lines[i+1]+" "+lines[i+2];
+                            item=line.split(" ");
+                            if(item.length<11){
+                                error = true;
+                                System.out.println("Error importing fileName:" + fileName + ",Line:" + lines[i]);
+
+                            }
                         }
                         if (!error) {
                             Trade tr = new Trade();
@@ -145,7 +150,7 @@ public class Contractnote {
                             tr.tradeNumber = item[iTradeNumber];
                             tr.orderTime = item[iOrderTime];
                             tr.executionTime = item[iExecutionTime];
-                            tr.side = item[iSide];
+                            tr.side = item[iSide].equals("BUY")?"Buy":"Sell";
                             //find next numeric id
                             int sizeIndex = iSymbol;
                             for (int j = sizeIndex; j < item.length; j++) {
@@ -158,16 +163,16 @@ public class Contractnote {
                             for (int counter = iSymbol; counter < sizeIndex; counter++) {
                                 tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
                             }
-                            tr.size = getInteger(item[sizeIndex]);
+                            tr.size = Math.abs(getInteger(item[sizeIndex]));
                             tr.price = getDouble(item[sizeIndex + 1]);
-                            tr.brokerage = getDouble(item[sizeIndex + 3]);
-                            tr.serviceTax = getDouble(item[sizeIndex + 4]);
-                            tr.stt = getDouble(item[sizeIndex + 5]);
-                            tr.otherLevies = getDouble(item[sizeIndex + 6]);
+                            tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                            tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));
+                            tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
+                            tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));
                             writeToFile(outputFileName, tr);
                         }
                     }
-                }
+                //}
             }
         }
     }
@@ -425,11 +430,15 @@ public class Contractnote {
     }
 
     public static Double getDouble(String str) {
+        if(!isNumeric(str)){
+            return 0D;
+        }else{
         Scanner scanner = new Scanner(str);
         if (scanner.hasNextDouble()) {
             return scanner.nextDouble();
         } else {
             return 0D;
+        }
         }
     }
 }
