@@ -40,6 +40,7 @@ public class Contractnote {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, COSVisitorException {
+        usage();
         BufferedWriter wr;
         String broker = args[0];
         //File input = new File("HODP0008_12112012_2.pdf");  // The PDF file from where you would like to extract
@@ -64,7 +65,7 @@ public class Contractnote {
                 System.out.println(fileEntry.getName());
                 pd = PDDocument.load(fileEntry);
                 PDFTextStripper stripper = new PDFTextStripper();
-                stripper.setStartPage(1);
+                stripper.setStartPage(0);
                 stripper.setEndPage(pd.getNumberOfPages() - 1);
 //                wr = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output)));
                 String contract = stripper.getText(pd);
@@ -95,6 +96,12 @@ public class Contractnote {
         }
     }
 
+    public static void usage(){
+        System.out.println("Requires three inputs");
+        System.out.println("Input 1: IBFNO or ZERODHA, case sensitive!!");
+        System.out.println("Input 2: Directory containing contract notes");
+        System.out.println("Input 3: output file name");
+    }
     public static void importIBFNO(String[] lines, String outputFileName) throws IOException {
         if (fileName.contains("FO")) {
             //System.out.println(fileEntry.getName());
@@ -239,10 +246,7 @@ public class Contractnote {
 
                                 }
                             }
-
-
                         }
-
                     }
                 }
             }
@@ -341,8 +345,7 @@ public class Contractnote {
                                     tr.size=getInteger(item[endIndex + 6]);
                                 tr.price=getDouble(item[endIndex + 8]);
                                 }
-                                break;
-                            
+                                break;                            
                         }
                         tr.brokerage = brokerage/(totalOrders.size()*totalOrders.get(item[0]));
                         if (tr.side.equals("Buy") && !option) {
@@ -351,17 +354,25 @@ public class Contractnote {
                         } else if (tr.side.equals("Sell") && !option) {
                             if(getDouble(item[0])>1000000){
                             tr.serviceTax = getDouble(item[startIndex - 6]);
+                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
+                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
                             tr.stt = getDouble(item[startIndex - 4]);
                             }else{
                                 //handling closeout
                             tr.serviceTax = getDouble(item[startIndex - 4]);
+                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
+                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
                             tr.stt = 0D;//No STT was charged by Zerodha in the contract note!!
                             }
                         }else if(tr.side.equals("Buy") && option){
-                            tr.serviceTax = getDouble(item[startIndex - 5]);
+                            tr.serviceTax = getDouble(item[startIndex - 5]);//st is available at line level on transaction costs
+                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
+                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
                             tr.stt = 0D;                            
                         }else if(tr.side.equals("Sell") && option){
                             tr.serviceTax = getDouble(item[startIndex - 8]);
+                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
+                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
                             tr.stt = getDouble(item[startIndex - 6]);
                         }                        
                         tr.otherLevies = otherLevies*itemValue/tradedValue;
