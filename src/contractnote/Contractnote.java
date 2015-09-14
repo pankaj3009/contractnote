@@ -17,6 +17,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.pdfbox.cos.COSDocument;
@@ -35,6 +38,7 @@ public class Contractnote {
     public static String delimiter = ",";
     public static String fileName;
     public static PDDocument pd;
+    private static final Logger logger = Logger.getLogger(Contractnote.class.getName());
 
     /**
      * @param args the command line arguments
@@ -58,15 +62,25 @@ public class Contractnote {
         //String[] lines = contract.split(System.getProperty("line.separator"));
         ArrayList<Trade> trades = new ArrayList<>();
         File folder = new File(args[1]);
+        FileInputStream configFile;
+        if (new File("logging.properties").exists()) {
+            configFile = new FileInputStream("logging.properties");
+            LogManager.getLogManager().readConfiguration(configFile);
+        }
         for (File fileEntry : folder.listFiles()) {
             try {
-                
+
                 fileName = fileEntry.getName();
+                if(fileName.contains("pdf")){
                 System.out.println(fileEntry.getName());
                 pd = PDDocument.load(fileEntry);
                 PDFTextStripper stripper = new PDFTextStripper();
                 stripper.setStartPage(0);
+                if(broker.equals("IBFNO")){
+                stripper.setEndPage(pd.getNumberOfPages());                    
+                }else if (broker.equals("ZERODHA")){
                 stripper.setEndPage(pd.getNumberOfPages() - 1);
+                }
 //                wr = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output)));
                 String contract = stripper.getText(pd);
                 String[] lines = contract.split(System.getProperty("line.separator"));
@@ -86,8 +100,9 @@ public class Contractnote {
                 }
                 // I use close() to flush the stream.
 //                wr.close();
-            } catch (Exception e) {
-                System.out.println("File import Failed: " + fileName);
+                }
+                } catch (Exception e) {
+                logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
             } finally {
                 if (pd != null) {
                     pd.close();
@@ -96,12 +111,13 @@ public class Contractnote {
         }
     }
 
-    public static void usage(){
+    public static void usage() {
         System.out.println("Requires three inputs");
         System.out.println("Input 1: IBFNO or ZERODHA, case sensitive!!");
         System.out.println("Input 2: Directory containing contract notes");
         System.out.println("Input 3: output file name");
     }
+
     public static void importIBFNO(String[] lines, String outputFileName) throws IOException {
         if (fileName.contains("FO")) {
             //System.out.println(fileEntry.getName());
@@ -137,249 +153,265 @@ public class Contractnote {
                 String[] item = lines[i].split(" ");
                 boolean error = false;
                 //if (isNumeric(item[0])) {
-                    if (getDouble(item[0]) > 10000000||item[0].trim().equals("N/A")) {
+                if (getDouble(item[0]) > 10000000 || item[0].trim().equals("N/A")) {
+                    if (item.length < 11) {
+                        //broken format. print line and move on
+                        String line = lines[i] + " " + lines[i + 1] + " " + lines[i + 2];
+                        item = line.split(" ");
                         if (item.length < 11) {
-                            //broken format. print line and move on
-                            String line=lines[i]+" "+lines[i+1]+" "+lines[i+2];
-                            item=line.split(" ");
-                            if(item.length<11){
-                                error = true;
-                                System.out.println("Error importing fileName:" + fileName + ",Line:" + lines[i]);
+                            error = true;
+                            logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
 
-                            }
-                        }
-                        if (!error) {
-                            Trade tr = new Trade();
-                            tr.fileName = fileName;
-                            tr.clientName = clientName;
-                            tr.tradeDate = contractDate;
-                            tr.contractNoteReference = reference;
-                            tr.tradeNumber = item[iTradeNumber];
-                            tr.orderTime = item[iOrderTime];
-                            tr.executionTime = item[iExecutionTime];
-                            tr.side = item[iSide].equals("BUY")?"Buy":"Sell";
-                            //find next numeric id
-                            int sizeIndex = iSymbol;
-                            for (int j = sizeIndex; j < item.length; j++) {
-                                if (isNumeric(item[j])) {
-                                    sizeIndex = j;
-                                    break;
-                                }
-                            }
-                            //now setup indexes as we know the size of the symbol
-                            for (int counter = iSymbol; counter < sizeIndex; counter++) {
-                                tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
-                            }
-                            tr.size = Math.abs(getInteger(item[sizeIndex]));
-                            tr.price = getDouble(item[sizeIndex + 1]);
-                            tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
-                            tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));
-                            tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
-                            tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));
-                            writeToFile(outputFileName, tr);
                         }
                     }
+                    if (!error) {
+                        Trade tr = new Trade();
+                        tr.fileName = fileName;
+                        tr.clientName = clientName;
+                        tr.tradeDate = contractDate;
+                        tr.contractNoteReference = reference;
+                        tr.tradeNumber = item[iTradeNumber];
+                        tr.orderTime = item[iOrderTime];
+                        tr.executionTime = item[iExecutionTime];
+                        tr.side = item[iSide].equals("BUY") ? "Buy" : "Sell";
+                        //find next numeric id
+                        int sizeIndex = iSymbol;
+                        for (int j = sizeIndex; j < item.length; j++) {
+                            if (isNumeric(item[j])) {
+                                sizeIndex = j;
+                                break;
+                            }
+                        }
+                        //now setup indexes as we know the size of the symbol
+                        for (int counter = iSymbol; counter < sizeIndex; counter++) {
+                            tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
+                        }
+                        tr.size = Math.abs(getInteger(item[sizeIndex]));
+                        tr.price = getDouble(item[sizeIndex + 1]);
+                        tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                        tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));
+                        tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
+                        tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));
+                        writeToFile(outputFileName, tr);
+                    }
+                }
                 //}
             }
         }
     }
 
     public static void importZerodha(String[] lines, String outputFileName, String inputFileName) throws IOException {
-        int iClientName = 7;
-        int iTradeNumber = 9;
-        int iOrderTime = 1;
-        int iExecutionTime = 3;
-        int iSide = 4;
-        int iSymbol = 5;
-        int iSize = -1;
-        int iPrice = -1;
-        int iBrokerage = -1;
-        int iServiceTax = -1;
-        int iOtherLevies = -1;
-        String reference = null;
-        String contractDate = null;
-        String clientName = null;
-        reference = "NA";
-        contractDate = fileName.split("_")[1];
-        clientName = "Pankaj Kumar Sharma";
-        //get total traded value
-        Double tradedValue = 0D;
-        Double otherLevies = 0D;
-        Double brokerage=0D;
-        HashMap<String, Integer> totalOrders = new HashMap<>();
-        int startIndex = 0;
-        int endIndex = 0;
+        try {
+            int iClientName = 7;
+            int iTradeNumber = 9;
+            int iOrderTime = 1;
+            int iExecutionTime = 3;
+            int iSide = 4;
+            int iSymbol = 5;
+            int iSize = -1;
+            int iPrice = -1;
+            int iBrokerage = -1;
+            int iServiceTax = -1;
+            int iOtherLevies = -1;
+            String reference = null;
+            String contractDate = null;
+            String clientName = null;
+            reference = "NA";
+            contractDate = fileName.split("_")[0];
+            clientName = "Pankaj Kumar Sharma";
+            //get total traded value
+            Double tradedValue = 0D;
+            Double otherLevies = 0D;
+            Double brokerage = 0D;
+            Double servicetax=0D;
+            HashMap<String, Integer> totalOrders = new HashMap<>();
+            int startIndex = 0;
+            int endIndex = 0;
 
-        for (String s : lines) {
-            if (s.contains("Stamp")) {
-                otherLevies = otherLevies + getDouble(getValue(s));
-            }
-            if (s.contains("Sebi Charges")) {
-                String[] substr = s.split(" ");
-                otherLevies = otherLevies + getDouble(getValue(substr[2].replaceAll(",", "")));
-                otherLevies = otherLevies + getDouble(getValue(substr[4].replaceAll(",", "")));
-            }
-
-            if (s.contains("Total Brokerage")) {
-                String[] substr = s.split(" ");
-                brokerage = getDouble(getValue(substr[3].replaceAll(",", "")));
-            }
-
-            String[] item = s.split(" ");
-            boolean error = false;
-            if (isNumeric(item[0])) {
-                if (getDouble(item[0]) > 200000) {
-                    if (item.length < 11) {
-                        //broken format. print line and move on
-                        System.out.println("Error importing fileName:" + fileName + ",Line:" + s);
-                        error = true;
+            for (String s : lines) {
+                if (s.contains("Stamp")) {
+                    otherLevies = otherLevies + getDouble(getValue(s));
+                }
+                if (s.contains("Sebi Charges")) {
+                    String[] substr = s.split(" ");
+                    if(substr.length>=5){
+                    otherLevies = otherLevies + getDouble(getValue(substr[2].replaceAll(",", "")));
+                    otherLevies = otherLevies + getDouble(getValue(substr[4].replaceAll(",", "")));
+                    }else{
+                        logger.log(Level.SEVERE,"Sebi Charges not updated correctly for file {0}",new Object[]{inputFileName});
                     }
-                    if (!error) {
-                        int suborders=totalOrders.get(item[0])!=null?totalOrders.get(item[0])+1:1;
-                        totalOrders.put(item[0], suborders);
-                        for (int counter = 0; counter < item.length; counter++) {
-                            String str = item[counter];
-                            String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                            if (substr.length == 2) {
-                                if (isNumeric(substr[0]) && substr[1].matches("[a-zA-Z]+")) {
-                                    tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                    }
 
-                                }
-                            }
-                        }
+                if (s.contains("Total Brokerage")) {
+                    String[] substr = s.split(" ");
+                    brokerage = getDouble(getValue(substr[3].replaceAll(",", "")));
+                }
+                if (s.contains("Service Tax")&& !s.contains("Service Tax No")) {
+                    String[] substr = s.split(" ");
+                    if(substr.length==4){
+                     servicetax= getDouble(getValue(substr[3].replaceAll(",", "")));
                     }
                 }
-            }
-        }
-        int orders = totalOrders.size();
-        for (int i = 0; i < lines.length; i++) {
-            Double itemValue=0D;
-            String[] item = lines[i].split(" ");
-            boolean error = false;
-            if (isNumeric(item[0])) {
-                if (getDouble(item[0]) > 200000) {
-                    if (item.length < 11) {
-                        //broken format. print line and move on
-                        System.out.println("Error importing fileName:" + fileName + ",Line:" + lines[i]);
-                        error = true;
-                    }
-                    if (!error) {
-                        Trade tr = new Trade();
-                        tr.fileName = fileName;
-                        tr.clientName = clientName;
-                        tr.tradeDate = contractDate.substring(4, 8)+contractDate.substring(2, 4)+contractDate.substring(0,2);
-                        tr.contractNoteReference = reference;
-                        tr.orderTime = item[iOrderTime];
-                        int count = 0;
-                        for (String s : item) {
 
-                            if (s.contains(":")) {
-                                count = count + 1;
-                            }
-                            if (count == 2) {
-                                tr.executionTime = s;
-                                break;
-                            }
+                String[] item = s.split(" ");
+                boolean error = false;
+                if (isNumeric(item[0])) {
+                    if (getDouble(item[0]) > 200000) {
+                        if (item.length < 11) {
+                            //broken format. print line and move on
+                            logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, s});
+                            error = true;
                         }
-                        //get side
+                        if (!error) {
+                            int suborders = totalOrders.get(item[0]) != null ? totalOrders.get(item[0]) + 1 : 1;
+                            totalOrders.put(item[0], suborders);
+                            for (int counter = 0; counter < item.length; counter++) {
+                                String str = item[counter];
+                                String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                                if (substr.length == 2) {
+                                    if (isNumeric(substr[0]) && substr[1].matches("[a-zA-Z]+")) {
+                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
 
-                        for (String s : item) {
-                            String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                            if (substr.length == 2) {
-                                if (isNumeric(substr[0]) && !substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
-                                    tr.side = "Sell";
-                                    tr.symbol = substr[1];
-                                    itemValue=Math.abs(getDouble(substr[0]));
-                                    break;
-                                } else if (isNumeric(substr[0]) && substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
-                                    tr.side = "Buy";
-                                    tr.symbol = substr[1];
-                                    itemValue=Math.abs(getDouble(substr[0]));
-                                    break;
-                                }
-                            }
-                        }
-                        //concatenate symbol name
-                        for (int counter = 0; counter < item.length; counter++) {
-                            if (item[counter].startsWith("(")) {
-                                startIndex = counter;
-                            }
-                            if (item[counter].endsWith(")")) {
-                                endIndex = counter;
-                            }
-                        }
-                        boolean option=false;
-                        if(startIndex==endIndex && (item[startIndex].contains("PE"))||item[startIndex].contains("CE")){
-                        option=true;
-                            for (int c = startIndex - 3; c <= endIndex; c++) {
-                            tr.symbol = tr.symbol + item[c].replace(",", "");
-                        }
-                        }else{
-                        
-                        for (int c = startIndex - 1; c <= endIndex; c++) {
-                            tr.symbol = tr.symbol + item[c];
-                        }
-                        }
-                        tr.tradeNumber = item[endIndex+1];
-                        switch(item.length){
-                            case 20:
-                                if(getDouble(item[0])>1000000){
-                                tr.size=getInteger(item[endIndex + 4]);
-                                tr.price=getDouble(item[endIndex + 6]);
-                                }
-                                else{
-                                    //handling closeout
-                                tr.size=getInteger(item[endIndex + 6]);
-                                tr.price=getDouble(item[endIndex + 8]);
                                     }
-                                break;
-                                
-                            case 22:
-                                tr.size=getInteger(item[endIndex + 6]);
-                                tr.price=getDouble(item[endIndex + 8]);
-                            default:
-                                if(tr.side.equals("Buy")){
-                                tr.size=getInteger(item[endIndex + 4]);
-                                tr.price=getDouble(item[endIndex + 6]);
-                                }else if(tr.side.equals("Sell")){
-                                    tr.size=getInteger(item[endIndex + 6]);
-                                tr.price=getDouble(item[endIndex + 8]);
                                 }
-                                break;                            
-                        }
-                        tr.brokerage = brokerage/(totalOrders.size()*totalOrders.get(item[0]));
-                        if (tr.side.equals("Buy") && !option) {
-                            tr.serviceTax = getDouble(item[startIndex - 3]);
-                            tr.stt = 0D;
-                        } else if (tr.side.equals("Sell") && !option) {
-                            if(getDouble(item[0])>1000000){
-                            tr.serviceTax = getDouble(item[startIndex - 6]);
-                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
-                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
-                            tr.stt = getDouble(item[startIndex - 4]);
-                            }else{
-                                //handling closeout
-                            tr.serviceTax = getDouble(item[startIndex - 4]);
-                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
-                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
-                            tr.stt = 0D;//No STT was charged by Zerodha in the contract note!!
                             }
-                        }else if(tr.side.equals("Buy") && option){
-                            tr.serviceTax = getDouble(item[startIndex - 5]);//st is available at line level on transaction costs
-                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
-                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
-                            tr.stt = 0D;                            
-                        }else if(tr.side.equals("Sell") && option){
-                            tr.serviceTax = getDouble(item[startIndex - 8]);
-                            tr.serviceTax=tr.serviceTax+0.03*tr.serviceTax;//edu tax and surcharge
-                            tr.serviceTax=tr.serviceTax+tr.brokerage*0.1236;
-                            tr.stt = getDouble(item[startIndex - 6]);
-                        }                        
-                        tr.otherLevies = otherLevies*itemValue/tradedValue;
-                        writeToFile(outputFileName, tr);
+                        }
                     }
                 }
             }
+            int orders = totalOrders.size();
+            for (int i = 0; i < lines.length; i++) {
+                Double itemValue = 0D;
+                String[] item = lines[i].split(" ");
+                boolean error = false;
+                if (isNumeric(item[0])) {
+                    if (getDouble(item[0]) > 200000) {
+                        if (item.length < 11) {
+                            //broken format. print line and move on
+                            logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
+                            error = true;
+                        }
+                        if (!error) {
+                            Trade tr = new Trade();
+                            tr.fileName = fileName;
+                            tr.clientName = clientName;
+                            tr.tradeDate = contractDate.substring(4, 8) + contractDate.substring(2, 4) + contractDate.substring(0, 2);
+                            tr.contractNoteReference = reference;
+                            tr.orderTime = item[iOrderTime];
+                            int count = 0;
+                            for (String s : item) {
+
+                                if (s.contains(":")) {
+                                    count = count + 1;
+                                }
+                                if (count == 2) {
+                                    tr.executionTime = s;
+                                    break;
+                                }
+                            }
+                            //get side
+
+                            for (String s : item) {
+                                String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                                if (substr.length == 2) {
+                                    if (isNumeric(substr[0]) && !substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
+                                        tr.side = "Sell";
+                                        tr.symbol = substr[1];
+                                        itemValue = Math.abs(getDouble(substr[0]));
+                                        break;
+                                    } else if (isNumeric(substr[0]) && substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
+                                        tr.side = "Buy";
+                                        tr.symbol = substr[1];
+                                        itemValue = Math.abs(getDouble(substr[0]));
+                                        break;
+                                    }
+                                }
+                            }
+                            //concatenate symbol name
+                            for (int counter = 0; counter < item.length; counter++) {
+                                if (item[counter].startsWith("(")) {
+                                    startIndex = counter;
+                                }
+                                if (item[counter].endsWith(")")) {
+                                    endIndex = counter;
+                                }
+                            }
+                            boolean option = false;
+                            if (startIndex == endIndex && (item[startIndex].contains("PE")) || item[startIndex].contains("CE")) {
+                                option = true;
+                                for (int c = startIndex - 3; c <= endIndex; c++) {
+                                    tr.symbol = tr.symbol + item[c].replace(",", "");
+                                }
+                            } else {
+
+                                for (int c = startIndex - 1; c <= endIndex; c++) {
+                                    tr.symbol = tr.symbol + item[c];
+                                }
+                            }
+                            tr.tradeNumber = item[endIndex + 1];
+                            switch (item.length) {
+                                case 20:
+                                    if (getDouble(item[0]) > 1000000) {
+                                        tr.size = getInteger(item[endIndex + 4]);
+                                        tr.price = getDouble(item[endIndex + 6]);
+                                    } else {
+                                        //handling closeout
+                                        tr.size = getInteger(item[endIndex + 6]);
+                                        tr.price = getDouble(item[endIndex + 8]);
+                                    }
+                                    break;
+
+                                case 22:
+                                    tr.size = getInteger(item[endIndex + 6]);
+                                    tr.price = getDouble(item[endIndex + 8]);
+                                default:
+                                    if (tr.side.equals("Buy")) {
+                                        tr.size = getInteger(item[endIndex + 4]);
+                                        tr.price = getDouble(item[endIndex + 6]);
+                                    } else if (tr.side.equals("Sell")) {
+                                        tr.size = getInteger(item[endIndex + 6]);
+                                        tr.price = getDouble(item[endIndex + 8]);
+                                    }
+                                    break;
+                            }
+                            tr.brokerage = brokerage / (totalOrders.size() * totalOrders.get(item[0]));
+                            tr.serviceTax=servicetax* itemValue / tradedValue;
+                            if (tr.side.equals("Buy") && !option) {
+                                //tr.serviceTax = getDouble(item[startIndex - 3]);
+                                tr.stt = 0D;
+                            } else if (tr.side.equals("Sell") && !option) {
+                                if (getDouble(item[0]) > 1000000) {
+                                  //  tr.serviceTax = getDouble(item[startIndex - 6]);
+                                    //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
+                                    //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
+                                    tr.stt = getDouble(item[startIndex - 4]);
+                                } else {
+                                    //handling closeout
+                                    //tr.serviceTax = getDouble(item[startIndex - 4]);
+                                    //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
+                                    //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
+                                    tr.stt = 0D;//No STT was charged by Zerodha in the contract note!!
+                                }
+                            } else if (tr.side.equals("Buy") && option) {
+                                //tr.serviceTax = getDouble(item[startIndex - 5]);//st is available at line level on transaction costs
+                                //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
+                                //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
+                                tr.stt = 0D;
+                            } else if (tr.side.equals("Sell") && option) {
+                                //tr.serviceTax = getDouble(item[startIndex - 8]);
+                                //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
+                                //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
+                                tr.stt = getDouble(item[startIndex - 6]);
+                            }
+                            tr.otherLevies = otherLevies * itemValue / tradedValue;
+                            writeToFile(outputFileName, tr);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE,null,e);
+            logger.log(Level.SEVERE, "Error:{0},Symbol:{1}", new Object[]{e,inputFileName});
         }
     }
 
@@ -441,15 +473,15 @@ public class Contractnote {
     }
 
     public static Double getDouble(String str) {
-        if(!isNumeric(str)){
+        if (!isNumeric(str)) {
             return 0D;
-        }else{
-        Scanner scanner = new Scanner(str);
-        if (scanner.hasNextDouble()) {
-            return scanner.nextDouble();
         } else {
-            return 0D;
-        }
+            Scanner scanner = new Scanner(str);
+            if (scanner.hasNextDouble()) {
+                return scanner.nextDouble();
+            } else {
+                return 0D;
+            }
         }
     }
 }
