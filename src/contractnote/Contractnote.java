@@ -7,24 +7,17 @@ package contractnote;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Scanner;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.pdfbox.cos.COSDocument;
 import org.apache.pdfbox.exceptions.COSVisitorException;
-import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.util.PDFTextStripper;
 
@@ -39,7 +32,7 @@ public class Contractnote {
     public static String fileName;
     public static PDDocument pd;
     private static final Logger logger = Logger.getLogger(Contractnote.class.getName());
-
+private static final String DIGIT_PATTERN = "\\d+";
     /**
      * @param args the command line arguments
      */
@@ -71,7 +64,7 @@ public class Contractnote {
             try {
 
                 fileName = fileEntry.getName();
-                if(fileName.contains("pdf")){
+                if(fileName.contains("pdf") ){
                 System.out.println(fileEntry.getName());
                 pd = PDDocument.load(fileEntry);
                 PDFTextStripper stripper = new PDFTextStripper();
@@ -82,7 +75,13 @@ public class Contractnote {
                 stripper.setEndPage(pd.getNumberOfPages() - 1);
                 }
 //                wr = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output)));
-                String contract = stripper.getText(pd);
+                String contract="";
+                try{
+                 contract = stripper.getText(pd);
+                }catch (Exception e){
+                stripper.setEndPage(pd.getNumberOfPages());
+                 contract = stripper.getText(pd);              }
+                
                 String[] lines = contract.split(System.getProperty("line.separator"));
                 switch (broker) {
 
@@ -102,6 +101,7 @@ public class Contractnote {
 //                wr.close();
                 }
                 } catch (Exception e) {
+                    logger.log(Level.SEVERE,null,e);
                 logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
             } finally {
                 if (pd != null) {
@@ -218,6 +218,7 @@ public class Contractnote {
             String clientName = null;
             reference = "NA";
             contractDate = fileName.split("_")[0];
+            contractDate=lines[36];
             clientName = "Pankaj Kumar Sharma";
             //get total traded value
             Double tradedValue = 0D;
@@ -227,25 +228,51 @@ public class Contractnote {
             HashMap<String, Integer> totalOrders = new HashMap<>();
             int startIndex = 0;
             int endIndex = 0;
-
+                int j=0;
             for (String s : lines) {
                 if (s.contains("Stamp")) {
+                    if(s.matches("(.)*(\\d)(.)*")){
                     otherLevies = otherLevies + getDouble(getValue(s));
+                    }else{
+                        logger.log(Level.SEVERE,"No Stamp Duty Found. Possible closeout for file {0}",new Object[]{inputFileName});
+                    }
                 }
                 if (s.contains("Sebi Charges")) {
                     String[] substr = s.split(" ");
-                    if(substr.length>=5){
-                    otherLevies = otherLevies + getDouble(getValue(substr[2].replaceAll(",", "")));
-                    otherLevies = otherLevies + getDouble(getValue(substr[4].replaceAll(",", "")));
+                    int len=substr.length;
+                    if(substr.length>=4){
+                    otherLevies = otherLevies + getDouble(getValue(substr[len-1].replaceAll(",", "")));
+                    if(len-3==2){
+                    otherLevies = otherLevies + getDouble(getValue(substr[len-3].replaceAll(",", "")));
+                    }
+                    }else{
+                        s=lines[j+5];
+                        substr = s.split(" ");
+                    if(substr.length>=4){
+                    otherLevies = otherLevies + getDouble(getValue(substr[1].replaceAll(",", "")));
+                    otherLevies = otherLevies + getDouble(getValue(substr[3].replaceAll(",", "")));
+                        
                     }else{
                         logger.log(Level.SEVERE,"Sebi Charges not updated correctly for file {0}",new Object[]{inputFileName});
                     }
                     }
-
-                if (s.contains("Total Brokerage")) {
-                    String[] substr = s.split(" ");
-                    brokerage = getDouble(getValue(substr[3].replaceAll(",", "")));
                 }
+
+                if (s.contains("Total Brokerage") && !s.contains("Gross") ) {
+                    String[] substr = s.split(" ");
+                    if(substr.length>=4){
+                    brokerage = getDouble(getValue(substr[3].replaceAll(",", "")));
+                    }else{
+                       s=lines[j+2];
+                       substr=s.split(" ");
+                       if(substr.length>=6){
+                       brokerage = getDouble(getValue(substr[5].replaceAll(",", "")));
+                       }else{
+                           logger.log(Level.SEVERE,"No Brokerage Found. Possible Closeout for file {0}",new Object[]{inputFileName});
+                       }
+                       
+                    }
+                    }
                 if (s.contains("Service Tax")&& !s.contains("Service Tax No")) {
                     String[] substr = s.split(" ");
                     if(substr.length==4){
@@ -278,6 +305,7 @@ public class Contractnote {
                         }
                     }
                 }
+                j++;
             }
             int orders = totalOrders.size();
             for (int i = 0; i < lines.length; i++) {
@@ -285,7 +313,7 @@ public class Contractnote {
                 String[] item = lines[i].split(" ");
                 boolean error = false;
                 if (isNumeric(item[0])) {
-                    if (getDouble(item[0]) > 200000) {
+                    if (getDouble(item[0]) > 200000||item[1].contains("00:00:00")) {
                         if (item.length < 11) {
                             //broken format. print line and move on
                             logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
@@ -295,8 +323,8 @@ public class Contractnote {
                             Trade tr = new Trade();
                             tr.fileName = fileName;
                             tr.clientName = clientName;
-                            tr.tradeDate = contractDate.substring(4, 8) + contractDate.substring(2, 4) + contractDate.substring(0, 2);
-                            tr.contractNoteReference = reference;
+                            tr.tradeDate = contractDate.substring(6, 10) + contractDate.substring(3, 5) + contractDate.substring(0, 2);
+                            tr.contractNoteReference = lines[35].trim();
                             tr.orderTime = item[iOrderTime];
                             int count = 0;
                             for (String s : item) {
@@ -304,15 +332,29 @@ public class Contractnote {
                                 if (s.contains(":")) {
                                     count = count + 1;
                                 }
-                                if (count == 2) {
+                                if (count == 1) {
                                     tr.executionTime = s;
                                     break;
                                 }
                             }
                             //get side
-
+                            String contractType="irregular";
+                            int countertype=0;
+                            for (String s : item) {          
+                                String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                                if(substr.length==2 && isInteger(substr[0]) && !isInteger(substr[1])){
+                                    contractType="regular";
+                                    break;
+                                }
+                                countertype++;
+                                
+                            }
+                            
+                            switch(contractType){
+                            case "regular":
                             for (String s : item) {
                                 String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                            
                                 if (substr.length == 2) {
                                     if (isNumeric(substr[0]) && !substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
                                         tr.side = "Sell";
@@ -327,6 +369,36 @@ public class Contractnote {
                                     }
                                 }
                             }
+                            break;
+                                    
+                                case "irregular":
+                             int rowcounter=0;
+                             for (String s : item) {
+                             String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                            
+                                if (rowcounter>=2 && isInteger(substr[0])) {
+                                    if (isNumeric(substr[0]) && !substr[0].contains("-")) {
+                                        tr.side = "Sell";
+                                        tr.symbol = item[6];
+                                        itemValue = Math.abs(getDouble(substr[0]));
+                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                        break;
+                                    } else if (isNumeric(substr[0]) && substr[0].contains("-") ) {
+                                        tr.side = "Buy";
+                                        tr.symbol = item[6];
+                                        itemValue = Math.abs(getDouble(substr[0]));
+                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                        break;
+                                    }
+                                }
+                                rowcounter++;
+                            }
+                             break;
+                                default:
+                                    break;
+                                    
+                            }
+
                             //concatenate symbol name
                             for (int counter = 0; counter < item.length; counter++) {
                                 if (item[counter].startsWith("(")) {
@@ -348,6 +420,8 @@ public class Contractnote {
                                     tr.symbol = tr.symbol + item[c];
                                 }
                             }
+                            switch(contractType){
+                                case "regular":
                             tr.tradeNumber = item[endIndex + 1];
                             switch (item.length) {
                                 case 20:
@@ -369,11 +443,27 @@ public class Contractnote {
                                         tr.size = getInteger(item[endIndex + 4]);
                                         tr.price = getDouble(item[endIndex + 6]);
                                     } else if (tr.side.equals("Sell")) {
-                                        tr.size = getInteger(item[endIndex + 6]);
-                                        tr.price = getDouble(item[endIndex + 8]);
+                                        tr.size = getInteger(item[endIndex + 4]);
+                                        tr.price = getDouble(item[endIndex + 6]);
                                     }
                                     break;
                             }
+                            break;
+                            case "irregular":
+                            tr.tradeNumber = item[4];
+                            if(getInteger(item[3])>0){
+                                tr.size = getInteger(item[3]);
+                                tr.price = getDouble(item[endIndex+2]);                                
+                            }else{
+                                tr.size = getInteger(item[endIndex+2]);
+                                tr.price=getDouble(item[endIndex+4]);                                
+                            }
+                            
+                            break;
+                                default:
+                                    break;
+                            }
+
                             tr.brokerage = brokerage / (totalOrders.size() * totalOrders.get(item[0]));
                             tr.serviceTax=servicetax* itemValue / tradedValue;
                             if (tr.side.equals("Buy") && !option) {
@@ -413,6 +503,31 @@ public class Contractnote {
             logger.log(Level.SEVERE,null,e);
             logger.log(Level.SEVERE, "Error:{0},Symbol:{1}", new Object[]{e,inputFileName});
         }
+    }
+
+        public static boolean isInteger(String str) {
+        if (str == null||str.isEmpty()) {
+            return false;
+        }
+        str = str.trim();
+        int length = str.length();
+        if (length == 0) {
+            return false;
+        }
+        int i = 0;
+        if (str.charAt(0) == '-') {
+            if (length == 1) {
+                return false;
+            }
+            i = 1;
+        }
+        for (; i < length; i++) {
+            char c = str.charAt(i);
+            if ((c <= '/' || c >= ':') && c!='.') {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static void writeToFile(String filename, Trade tr) throws IOException {
