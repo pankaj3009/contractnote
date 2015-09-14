@@ -64,7 +64,7 @@ private static final String DIGIT_PATTERN = "\\d+";
             try {
 
                 fileName = fileEntry.getName();
-                if(fileName.contains("pdf") ){
+                if(fileName.contains("pdf") && fileName.contains("20140828_Zerodha_FNO.pdf") ){
                 System.out.println(fileEntry.getName());
                 pd = PDDocument.load(fileEntry);
                 PDFTextStripper stripper = new PDFTextStripper();
@@ -354,7 +354,6 @@ private static final String DIGIT_PATTERN = "\\d+";
                             case "regular":
                             for (String s : item) {
                                 String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                            
                                 if (substr.length == 2) {
                                     if (isNumeric(substr[0]) && !substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
                                         tr.side = "Sell";
@@ -442,7 +441,10 @@ private static final String DIGIT_PATTERN = "\\d+";
                                     if (tr.side.equals("Buy")) {
                                         tr.size = getInteger(item[endIndex + 4]);
                                         tr.price = getDouble(item[endIndex + 6]);
-                                    } else if (tr.side.equals("Sell")) {
+                                    } else if (tr.side.equals("Sell") && !item[1].contains("00:00:00")) {
+                                        tr.size = getInteger(item[endIndex + 6]);
+                                        tr.price = getDouble(item[endIndex + 8]);
+                                    }else if(tr.side.equals("Sell") && item[1].contains("00:00:00")){
                                         tr.size = getInteger(item[endIndex + 4]);
                                         tr.price = getDouble(item[endIndex + 6]);
                                     }
