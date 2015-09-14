@@ -256,7 +256,7 @@ public class Contractnote {
                 String[] item = s.split(" ");
                 boolean error = false;
                 if (isNumeric(item[0])) {
-                    if (getDouble(item[0]) > 200000 ||item[1].trim().contains("00:00:00")) {
+                    if (getDouble(item[0]) > 200000 ||((item.length>2) && item[1].trim().contains("00:00:00"))) {
                         if (item.length < 11) {
                             //broken format. print line and move on
                             logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, s});
