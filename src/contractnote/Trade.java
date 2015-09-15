@@ -22,7 +22,7 @@ public class Trade {
     Double price;
     Double brokerage;
     Double serviceTax;
-    Double stt;
+    Double stt=0D;
     Double otherLevies;
     String orderTime;
     String executionTime;

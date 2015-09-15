@@ -32,6 +32,9 @@ public class Contractnote {
     public static String fileName;
     public static PDDocument pd;
     private static final Logger logger = Logger.getLogger(Contractnote.class.getName());
+    private static String startDate;
+    private static String endDate;
+    
 private static final String DIGIT_PATTERN = "\\d+";
     /**
      * @param args the command line arguments
@@ -55,6 +58,10 @@ private static final String DIGIT_PATTERN = "\\d+";
         //String[] lines = contract.split(System.getProperty("line.separator"));
         ArrayList<Trade> trades = new ArrayList<>();
         File folder = new File(args[1]);
+        if(args.length>3){
+            startDate=args[3];
+            endDate=args[4];
+        }
         FileInputStream configFile;
         if (new File("logging.properties").exists()) {
             configFile = new FileInputStream("logging.properties");
@@ -64,7 +71,14 @@ private static final String DIGIT_PATTERN = "\\d+";
             try {
 
                 fileName = fileEntry.getName();
-                if(fileName.contains("pdf") && fileName.contains("20140828_Zerodha_FNO.pdf") ){
+                if(startDate==null){
+                    startDate=fileEntry.getName().substring(0, 8);
+                }
+                if(endDate==null){
+                    int len=folder.listFiles().length;
+                    endDate=folder.listFiles()[len-1].getName().substring(0,8);
+                }
+                if(fileName.contains("pdf") && fileName.substring(0,8).compareTo(startDate)>=0 && fileName.substring(0,8).compareTo(endDate)<=0 ){
                 System.out.println(fileEntry.getName());
                 pd = PDDocument.load(fileEntry);
                 PDFTextStripper stripper = new PDFTextStripper();
@@ -116,6 +130,8 @@ private static final String DIGIT_PATTERN = "\\d+";
         System.out.println("Input 1: IBFNO or ZERODHA, case sensitive!!");
         System.out.println("Input 2: Directory containing contract notes");
         System.out.println("Input 3: output file name");
+        System.out.println("Input 4: Optional Start Date formattted as yyyyMMdd");
+        System.out.println("Input 5: Optional End Date formatted as yyyyMMdd");
     }
 
     public static void importIBFNO(String[] lines, String outputFileName) throws IOException {
@@ -218,7 +234,7 @@ private static final String DIGIT_PATTERN = "\\d+";
             String clientName = null;
             reference = "NA";
             contractDate = fileName.split("_")[0];
-            contractDate=lines[36];
+            //contractDate=lines[36];
             clientName = "Pankaj Kumar Sharma";
             //get total traded value
             Double tradedValue = 0D;
@@ -290,8 +306,21 @@ private static final String DIGIT_PATTERN = "\\d+";
                             error = true;
                         }
                         if (!error) {
+                            String contractType="irregular";
+                            int countertype=0;
+                            for (String s1 : item) {          
+                                String[] substr = s1.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                                if(substr.length==2 && isInteger(substr[0]) && !isInteger(substr[1])){
+                                    contractType="regular";
+                                    break;
+                                }
+                                countertype++;
+                                
+                            }
                             int suborders = totalOrders.get(item[0]) != null ? totalOrders.get(item[0]) + 1 : 1;
                             totalOrders.put(item[0], suborders);
+                            switch(contractType){
+                                case "regular":
                             for (int counter = 0; counter < item.length; counter++) {
                                 String str = item[counter];
                                 String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
@@ -302,6 +331,26 @@ private static final String DIGIT_PATTERN = "\\d+";
                                     }
                                 }
                             }
+                            break;
+                                case "irregular":
+                             int rowcounter=0;
+                            for (int counter = 0; counter < item.length; counter++) {
+                                String str = item[counter];
+                             String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                            
+                                if (rowcounter>=2 && isInteger(substr[0])) {
+                                    if (isNumeric(substr[0])) {
+                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                        break;
+                                    } 
+                                }
+                                rowcounter++;
+                            }
+                             break;
+                                default:
+                                    break;
+                            }
+
                         }
                     }
                 }
@@ -323,7 +372,7 @@ private static final String DIGIT_PATTERN = "\\d+";
                             Trade tr = new Trade();
                             tr.fileName = fileName;
                             tr.clientName = clientName;
-                            tr.tradeDate = contractDate.substring(6, 10) + contractDate.substring(3, 5) + contractDate.substring(0, 2);
+                            tr.tradeDate = contractDate;
                             tr.contractNoteReference = lines[35].trim();
                             tr.orderTime = item[iOrderTime];
                             int count = 0;
@@ -380,13 +429,13 @@ private static final String DIGIT_PATTERN = "\\d+";
                                         tr.side = "Sell";
                                         tr.symbol = item[6];
                                         itemValue = Math.abs(getDouble(substr[0]));
-                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                       // tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
                                         break;
                                     } else if (isNumeric(substr[0]) && substr[0].contains("-") ) {
                                         tr.side = "Buy";
                                         tr.symbol = item[6];
                                         itemValue = Math.abs(getDouble(substr[0]));
-                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                      //  tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
                                         break;
                                     }
                                 }
@@ -476,7 +525,11 @@ private static final String DIGIT_PATTERN = "\\d+";
                                   //  tr.serviceTax = getDouble(item[startIndex - 6]);
                                     //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
                                     //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
+                                    if(contractType.equals("regular")){
                                     tr.stt = getDouble(item[startIndex - 4]);
+                                    }else{
+                                        tr.stt=getDouble(item[endIndex+10]);
+                                    }
                                 } else {
                                     //handling closeout
                                     //tr.serviceTax = getDouble(item[startIndex - 4]);
@@ -493,7 +546,15 @@ private static final String DIGIT_PATTERN = "\\d+";
                                 //tr.serviceTax = getDouble(item[startIndex - 8]);
                                 //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
                                 //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
+                                if(contractType.equals("regular")){
                                 tr.stt = getDouble(item[startIndex - 6]);
+                                }else{
+                                    if(item.length>endIndex+10){
+                                    tr.stt=getDouble(item[endIndex+10]);
+                                }else{
+                                        logger.log(Level.SEVERE,"No STT Found. Possible Closeout for file {0}",new Object[]{inputFileName});
+                                    }
+                                }
                             }
                             tr.otherLevies = otherLevies * itemValue / tradedValue;
                             writeToFile(outputFileName, tr);
@@ -554,8 +615,8 @@ private static final String DIGIT_PATTERN = "\\d+";
         }
 
         Double netamount = tr.side.equals("Buy") ? -tr.size * tr.price - tr.brokerage - tr.serviceTax - tr.stt - tr.otherLevies : tr.size * tr.price - tr.brokerage - tr.serviceTax - tr.stt - tr.otherLevies;
-        bufferWritter.write(tr.fileName + delimiter + tr.clientName + delimiter + tr.contractNoteReference + delimiter + tr.tradeDate + delimiter + tr.tradeNumber + delimiter + tr.orderTime + delimiter + tr.executionTime + delimiter
-                + tr.side + delimiter + tr.symbol + delimiter + tr.size + delimiter + tr.price + delimiter + tr.brokerage + delimiter
+        bufferWritter.write(tr.fileName.replaceAll(" ", "") + delimiter + tr.clientName.replaceAll(" ", "").replaceAll(",", "") + delimiter + tr.contractNoteReference.replaceAll(" ", "").replaceAll(",", "") + delimiter + tr.tradeDate + delimiter + tr.tradeNumber + delimiter + tr.orderTime + delimiter + tr.executionTime + delimiter
+                + tr.side + delimiter + tr.symbol.replaceAll(" ", "").replaceAll(",", "") + delimiter + tr.size + delimiter + tr.price + delimiter + tr.brokerage + delimiter
                 + tr.serviceTax + delimiter + tr.stt + delimiter + tr.otherLevies + delimiter + netamount + newline);
 
 
