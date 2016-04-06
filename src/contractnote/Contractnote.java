@@ -40,9 +40,8 @@ public class Contractnote {
     private static String startDate;
     private static String endDate;
     private static HashMap<String, String> mapping = new HashMap<>();
-    private static HashMap<String,String>symbolMapping=new HashMap<>();
-    
-private static final String DIGIT_PATTERN = "\\d+";
+    private static HashMap<String, String> symbolMapping = new HashMap<>();
+    private static final String DIGIT_PATTERN = "\\d+";
 
     /**
      * @param args the command line arguments
@@ -75,15 +74,15 @@ private static final String DIGIT_PATTERN = "\\d+";
                 mapping.put(key, s);
             }
         }
-        
-        if(broker.equals("IBFNO")){
+
+        if (broker.equals("IBFNO")) {
             if (new File("symbols-inr.csv").exists()) {
-            List<String> existingMapping = Files.readAllLines(Paths.get("symbols-inr.csv"), StandardCharsets.UTF_8);
-            for (String s : existingMapping) {
-                String key = s.split(",")[1];
-                symbolMapping.put(key, s);
+                List<String> existingMapping = Files.readAllLines(Paths.get("symbols-inr.csv"), StandardCharsets.UTF_8);
+                for (String s : existingMapping) {
+                    String key = s.split(",")[1];
+                    symbolMapping.put(key, s);
+                }
             }
-        }
         }
         FileInputStream configFile;
         if (new File("logging.properties").exists()) {
@@ -132,7 +131,7 @@ private static final String DIGIT_PATTERN = "\\d+";
                     switch (broker) {
 
                         case "IBFNO":
-                            importIBFNO(lines, tradesFileName,mappingFileName);
+                            importIBFNO(lines, tradesFileName, mappingFileName);
                             break;
                         case "ZERODHA":
                             importZerodha(lines, tradesFileName, mappingFileName, fileName);
@@ -168,85 +167,104 @@ private static final String DIGIT_PATTERN = "\\d+";
         System.out.println("Input 6: Optional End Date formatted as yyyyMMdd");
     }
 
-    public static void importIBFNO(String[] lines, String outputFileName,String mappingFileName) throws IOException {
-        try{
-        if (fileName.contains("FO")) {
-            //System.out.println(fileEntry.getName());
-            int iClientName = 7;
-            int iTradeNumber = 2;
-            int iOrderTime = 1;
-            int iExecutionTime = 3;
-            int iSide = 4;
-            int iSymbol = 5;
-            int iSize = -1;
-            int iPrice = -1;
-            int iBrokerage = -1;
-            int iServiceTax = -1;
-            int iOtherLevies = -1;
-            String reference = null;
-            String contractDate = null;
-            String clientName = null;
-            for (int i = 0; i < lines.length; i++) {
-                String[] temp = lines[i].split(" ");
-                if (temp.length == 4 && temp[0].equals("Contract") && temp[1].equals("Note") && temp[2].equals("Number") && isNumeric(temp[3])) {
-                    reference = lines[i].split(" ")[3];
-                }
-                if (temp.length == 3 && temp[0].trim().equals("Trade") && temp[1].trim().equals("Date")) {
-                    contractDate = lines[i].split(" ")[2].replace("-", "");
-                }
-                if (temp.length > 2 && temp[0].equals("Client") && temp[1].equals("Name")) {
-                    clientName = lines[i].substring(11);
-                }
-
-            }
-
-            for (int i = 0; i < lines.length; i++) {
-                String[] item = lines[i].split(" ");
-                boolean error = false;
-                //if (isNumeric(item[0])) {
-                if (getDouble(item[0]) > 10000000 || item[0].trim().equals("N/A")) {
-                    if (item.length < 11) {
-                        //broken format. print line and move on
-                        String line = lines[i] + " " + lines[i + 1] + " " + lines[i + 2];
-                        item = line.split(" ");
-                        if (item.length < 11) {
-                            error = true;
-                            logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
-
-                        }
+    public static void importIBFNO(String[] lines, String outputFileName, String mappingFileName) throws IOException {
+        try {
+            if (fileName.contains("FO")) {
+                //System.out.println(fileEntry.getName());
+                int iClientName = 7;
+                int iTradeNumber = 2;
+                int iOrderTime = 1;
+                int iExecutionTime = 3;
+                int iSide = 4;
+                int iSymbol = 5;
+                int iSize = -1;
+                int iPrice = -1;
+                int iBrokerage = -1;
+                int iServiceTax = -1;
+                int iOtherLevies = -1;
+                String reference = null;
+                String contractDate = null;
+                String clientName = null;
+                for (int i = 0; i < lines.length; i++) {
+                    String[] temp = lines[i].split(" ");
+                    if (temp.length == 4 && temp[0].equals("Contract") && temp[1].equals("Note") && temp[2].equals("Number") && isNumeric(temp[3])) {
+                        reference = lines[i].split(" ")[3];
                     }
-                    if (!error) {
-                        Trade tr = new Trade();
-                        tr.fileName = fileName;
-                        tr.clientName = clientName;
-                        tr.tradeDate = contractDate;
-                        tr.contractNoteReference = reference;
-                        tr.tradeNumber = item[iTradeNumber];
-                        tr.orderTime = item[iOrderTime];
-                        tr.executionTime = item[iExecutionTime];
-                        tr.side = item[iSide].equals("BUY") ? "Buy" : "Sell";
-                        //find next numeric id
-                        int sizeIndex = iSymbol;
-                        for (int j = sizeIndex; j < item.length; j++) {
-                            if (isNumeric(item[j])) {
-                                if (j + 2 < item.length && isNumeric(item[j + 1])) {
-                                    sizeIndex = j;
-                                    break;
-                                }
+                    if (temp.length == 3 && temp[0].trim().equals("Trade") && temp[1].trim().equals("Date")) {
+                        contractDate = lines[i].split(" ")[2].replace("-", "");
+                    }
+                    if (temp.length > 2 && temp[0].equals("Client") && temp[1].equals("Name")) {
+                        clientName = lines[i].substring(11);
+                    }
+
+                }
+
+                for (int i = 0; i < lines.length; i++) {
+                    String[] item = lines[i].split(" ");
+                    boolean error = false;
+                    //if (isNumeric(item[0])) {
+                    if (getDouble(item[0]) > 10000000 || item[0].trim().equals("N/A")) {
+                        if (item.length < 11) {
+                            //broken format. print line and move on
+                            String line = lines[i] + " " + lines[i + 1] + " " + lines[i + 2];
+                            item = line.split(" ");
+                            if (item.length < 11) {
+                                error = true;
+                                logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
+
                             }
                         }
-                        //now setup indexes as we know the size of the symbol
-                        for (int counter = iSymbol; counter < sizeIndex; counter++) {
-                            tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
-                        }
-                        tr.size = Math.abs(getInteger(item[sizeIndex]));
-                        tr.price = getDouble(item[sizeIndex + 1]);
-                        tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
-                        tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));
-                        tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
-                        tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));
-                        writeTradesToFile(outputFileName, tr);
-                                if (mapping.get(tr.symbol) == null) {
+                        if (!error) {
+                            Trade tr = new Trade();
+                            tr.fileName = fileName;
+                            tr.clientName = clientName;
+                            tr.tradeDate = contractDate;
+                            tr.contractNoteReference = reference;
+                            tr.tradeNumber = item[iTradeNumber];
+                            tr.orderTime = item[iOrderTime];
+                            tr.executionTime = item[iExecutionTime];
+                            tr.side = item[iSide].equals("BUY") ? "Buy" : "Sell";
+                            //find next numeric id
+                            int sizeIndex = iSymbol;
+                            for (int j = sizeIndex; j < item.length; j++) {
+                                if (isNumeric(item[j])) {
+                                    if (j + 2 < item.length && isNumeric(item[j + 1])) {
+                                        sizeIndex = j;
+                                        break;
+                                    }
+                                }
+                            }
+                            //now setup indexes as we know the size of the symbol
+                            for (int counter = iSymbol; counter < sizeIndex; counter++) {
+                                tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
+                            }
+                            int category = 0;
+                            category = tr.tradeDate.compareTo("20151126") < 0 ? 1 : 2;
+                            /*
+                             * 20151126: IB Added Swach Bharat Cess Column
+                             */
+                            switch (category) {
+                                case 1:
+                                    tr.size = Math.abs(getInteger(item[sizeIndex]));
+                                    tr.price = getDouble(item[sizeIndex + 1]);
+                                    tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6])) + Math.abs(getDouble(item[sizeIndex + 7]));//Stamp Duty + Exchange Charges
+                                    break;
+                                case 2:
+                                    tr.size = Math.abs(getInteger(item[sizeIndex]));
+                                    tr.price = getDouble(item[sizeIndex + 1]);
+                                    tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4])) + Math.abs(getDouble(item[sizeIndex + 5]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 6]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 7])) + Math.abs(getDouble(item[sizeIndex + 8]));//Stamp Duty + Exchange Charges
+                                    break;
+                                default:
+                                    break;
+                            }
+                            writeTradesToFile(outputFileName, tr);
+                            if (mapping.get(tr.symbol) == null) {
                                 SimpleDateFormat sdfddMMMyy = new SimpleDateFormat("ddMMMyy");
                                 SimpleDateFormat sdfyyyyMMdd = new SimpleDateFormat("yyyyMMdd");
                                 Mapping m = new Mapping();
@@ -257,29 +275,29 @@ private static final String DIGIT_PATTERN = "\\d+";
                                     m.type = "FUT";
                                     m.right = "XX";
                                     m.strike = "0";
-                                    m.nseSymbol =m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
-                                    m.expiry = m.brokerSymbol.substring(brokSymbolLength-7, brokSymbolLength);
+                                    m.nseSymbol = m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
+                                    m.expiry = m.brokerSymbol.substring(brokSymbolLength - 7, brokSymbolLength);
                                     m.expiry = sdfyyyyMMdd.format(sdfddMMMyy.parse(m.expiry));
                                 } else {
                                     m.type = "OPT";
                                     m.right = m.brokerSymbol.substring(brokSymbolLength - 1, brokSymbolLength).equals("P") ? "PUT" : "CALL";
-                                    m.nseSymbol =m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
-                                    m.expiry = m.brokerSymbol.substring(m.nseSymbol.length()-1,m.nseSymbol.length()+6 );
+                                    m.nseSymbol = m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
+                                    m.expiry = m.brokerSymbol.substring(m.nseSymbol.length() - 1, m.nseSymbol.length() + 6);
                                     m.expiry = sdfyyyyMMdd.format(sdfddMMMyy.parse(m.expiry));
-                                    m.strike=m.brokerSymbol.substring(m.nseSymbol.length()+7-1,brokSymbolLength-1);
-                                    m.strike=m.strike.split("\\.")[0];
+                                    m.strike = m.brokerSymbol.substring(m.nseSymbol.length() + 7 - 1, brokSymbolLength - 1);
+                                    m.strike = m.strike.split("\\.")[0];
                                 }
                                 m.nseSymbol = symbolMapping.get(m.nseSymbol).split(",")[2];
                                 mapping.put(m.brokerSymbol, m.brokerSymbol + "," + m.nseSymbol + "," + m.expiry + "," + m.type + "," + m.right + "," + m.strike);
                                 writeMappingToFile(mappingFileName, m);
                             }
+                        }
                     }
+                    //}
                 }
-                //}
             }
-        }
-        }catch (Exception e){
-            logger.log(Level.SEVERE,null,e);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, null, e);
         }
     }
 
@@ -360,6 +378,12 @@ private static final String DIGIT_PATTERN = "\\d+";
                     String[] substr = s.split(" ");
                     if (substr.length == 4) {
                         servicetax = getDouble(getValue(substr[3].replaceAll(",", "")));
+                    }
+                }
+                if (s.contains("Swachh")) {
+                    String[] substr = s.split(" ");
+                    if (substr.length == 5) {
+                        servicetax = servicetax+getDouble(getValue(substr[4].replaceAll(",", "")));
                     }
                 }
 
