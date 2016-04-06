@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
@@ -89,7 +90,9 @@ public class Contractnote {
             configFile = new FileInputStream("logging.properties");
             LogManager.getLogManager().readConfiguration(configFile);
         }
-        for (File fileEntry : folder.listFiles()) {
+        File[] files=folder.listFiles();
+        Arrays.sort(files);
+        for (File fileEntry :files ) {
             try {
 //                if(fileEntry.getName().equals("20151231_Zerodha_FNO.pdf")){
                 fileName = fileEntry.getName();
