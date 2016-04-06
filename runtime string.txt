@@ -1,0 +1,2 @@
+IBFNO 'C:\\Users\\Pankaj\\Documents\\Seafile\\My Library\\Accounting, Tax and Papers\\ContractNotes\\IB\\2017' ib.trades.2017.csv ib.mapping.2017.csv
+ZERODHA 'C:\\Users\\Pankaj\\Documents\\Seafile\\My Library\\Accounting, Tax and Papers\\ContractNotes\\Zerodha\\2017' zd.trades.2017.csv zd.mapping.2017.csv

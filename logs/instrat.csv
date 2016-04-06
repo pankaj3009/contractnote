@@ -1,0 +1,15 @@
+[12:16:02.833],null
+java.lang.NullPointerException
+	at contractnote.Contractnote.importIBFNO(Contractnote.java:272)
+	at contractnote.Contractnote.main(Contractnote.java:135)
+
+[12:16:05.505],null
+java.lang.NullPointerException
+	at contractnote.Contractnote.importIBFNO(Contractnote.java:272)
+	at contractnote.Contractnote.main(Contractnote.java:135)
+
+[12:16:05.617],null
+java.lang.NullPointerException
+	at contractnote.Contractnote.importIBFNO(Contractnote.java:272)
+	at contractnote.Contractnote.main(Contractnote.java:135)
+

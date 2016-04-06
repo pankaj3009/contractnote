@@ -1,0 +1,87 @@
+[16:02:27.258],null
+java.lang.RuntimeException: java.io.IOException: Expected='null' actual='n' at offset 24393
+	at org.apache.pdfbox.pdfparser.PDFStreamParser$1.tryNext(PDFStreamParser.java:191)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser$1.hasNext(PDFStreamParser.java:198)
+	at org.apache.pdfbox.util.PDFStreamEngine.processSubStream(PDFStreamEngine.java:255)
+	at org.apache.pdfbox.util.PDFStreamEngine.processSubStream(PDFStreamEngine.java:235)
+	at org.apache.pdfbox.util.PDFStreamEngine.processStream(PDFStreamEngine.java:215)
+	at org.apache.pdfbox.util.PDFTextStripper.processPage(PDFTextStripper.java:460)
+	at org.apache.pdfbox.util.PDFTextStripper.processPages(PDFTextStripper.java:385)
+	at org.apache.pdfbox.util.PDFTextStripper.writeText(PDFTextStripper.java:344)
+	at org.apache.pdfbox.util.PDFTextStripper.getText(PDFTextStripper.java:257)
+	at contractnote.Contractnote.main(Contractnote.java:90)
+Caused by: java.io.IOException: Expected='null' actual='n' at offset 24393
+	at org.apache.pdfbox.pdfparser.BaseParser.parseDirObject(BaseParser.java:1307)
+	at org.apache.pdfbox.pdfparser.BaseParser.parseCOSArray(BaseParser.java:1084)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser.parseNextToken(PDFStreamParser.java:269)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser.access$000(PDFStreamParser.java:47)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser$1.tryNext(PDFStreamParser.java:186)
+	... 9 more
+
+[16:02:27.289],Error reading pdf: C:\Users\Pankaj\Documents\Seafile\My Library\Accounting, Tax and Papers\ContractNotes\Zerodha\20140611_Zerodha_FNO.pdf
+[16:02:27.321],null
+java.lang.RuntimeException: java.io.IOException: Expected='null' actual='n' at offset 2812
+	at org.apache.pdfbox.pdfparser.PDFStreamParser$1.tryNext(PDFStreamParser.java:191)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser$1.hasNext(PDFStreamParser.java:198)
+	at org.apache.pdfbox.util.PDFStreamEngine.processSubStream(PDFStreamEngine.java:255)
+	at org.apache.pdfbox.util.PDFStreamEngine.processSubStream(PDFStreamEngine.java:235)
+	at org.apache.pdfbox.util.PDFStreamEngine.processStream(PDFStreamEngine.java:215)
+	at org.apache.pdfbox.util.PDFTextStripper.processPage(PDFTextStripper.java:460)
+	at org.apache.pdfbox.util.PDFTextStripper.processPages(PDFTextStripper.java:385)
+	at org.apache.pdfbox.util.PDFTextStripper.writeText(PDFTextStripper.java:344)
+	at org.apache.pdfbox.util.PDFTextStripper.getText(PDFTextStripper.java:257)
+	at contractnote.Contractnote.main(Contractnote.java:90)
+Caused by: java.io.IOException: Expected='null' actual='n' at offset 2812
+	at org.apache.pdfbox.pdfparser.BaseParser.parseDirObject(BaseParser.java:1307)
+	at org.apache.pdfbox.pdfparser.BaseParser.parseCOSArray(BaseParser.java:1084)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser.parseNextToken(PDFStreamParser.java:269)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser.access$000(PDFStreamParser.java:47)
+	at org.apache.pdfbox.pdfparser.PDFStreamParser$1.tryNext(PDFStreamParser.java:186)
+	... 9 more
+
+[16:02:27.321],Error reading pdf: C:\Users\Pankaj\Documents\Seafile\My Library\Accounting, Tax and Papers\ContractNotes\Zerodha\20140612_Zerodha_FNO.pdf
+[16:02:27.977],null
+java.lang.NullPointerException
+	at contractnote.Contractnote.importZerodha(Contractnote.java:391)
+	at contractnote.Contractnote.main(Contractnote.java:99)
+
+[16:02:27.977],Error:java.lang.NullPointerException,Symbol:20140624_Zerodha_FNO.pdf
+[16:02:29.102],null
+java.lang.IllegalStateException: No match found
+	at java.util.regex.Matcher.group(Matcher.java:485)
+	at java.util.regex.Matcher.group(Matcher.java:445)
+	at contractnote.Contractnote.getValue(Contractnote.java:475)
+	at contractnote.Contractnote.importZerodha(Contractnote.java:251)
+	at contractnote.Contractnote.main(Contractnote.java:99)
+
+[16:02:29.102],Error:java.lang.IllegalStateException: No match found,Symbol:20140828_Zerodha_FNO.pdf
+[16:02:29.758],null
+java.lang.ArrayIndexOutOfBoundsException: 5
+	at contractnote.Contractnote.importZerodha(Contractnote.java:267)
+	at contractnote.Contractnote.main(Contractnote.java:99)
+
+[16:02:29.758],Error:java.lang.ArrayIndexOutOfBoundsException: 5,Symbol:20141023_Zerodha_FNO.pdf
+[16:02:30.743],null
+java.lang.NullPointerException
+
+[16:02:30.743],Error:java.lang.NullPointerException,Symbol:20141112_Zerodha_FNO.pdf
+[16:02:30.946],null
+java.lang.NullPointerException
+
+[16:02:30.946],Error:java.lang.NullPointerException,Symbol:20141117_Zerodha_FNO.pdf
+[16:02:32.243],null
+java.lang.NullPointerException
+
+[16:02:32.243],Error:java.lang.NullPointerException,Symbol:20141204_Zerodha_FNO.pdf
+[16:02:32.258],null
+java.lang.NullPointerException
+
+[16:02:32.258],Error:java.lang.NullPointerException,Symbol:20141205_Zerodha_FNO.pdf
+[16:02:33.868],null
+java.lang.NullPointerException
+
+[16:02:33.868],Error:java.lang.NullPointerException,Symbol:20141223_Zerodha_FNO.pdf
+[16:02:39.914],null
+java.lang.NullPointerException
+
+[16:02:39.914],Error:java.lang.NullPointerException,Symbol:20150608_Zerodha_FNO.pdf

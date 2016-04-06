@@ -9,8 +9,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
@@ -34,33 +39,51 @@ public class Contractnote {
     private static final Logger logger = Logger.getLogger(Contractnote.class.getName());
     private static String startDate;
     private static String endDate;
+    private static HashMap<String, String> mapping = new HashMap<>();
+    private static HashMap<String,String>symbolMapping=new HashMap<>();
     
 private static final String DIGIT_PATTERN = "\\d+";
+
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException, COSVisitorException {
         usage();
-        BufferedWriter wr;
         String broker = args[0];
-        //File input = new File("HODP0008_12112012_2.pdf");  // The PDF file from where you would like to extract
-        //File output = new File("SampleText.txt"); // The text file where you are going to store the extracted data
-        //pd = PDDocument.load(input);
-        //System.out.println(pd.getNumberOfPages());
-        // System.out.println(pd.isEncrypted());
-        //pd.save("CopyOfInvoice.pdf"); // Creates a copy called "CopyOfInvoice.pdf"
-        //PDFTextStripper stripper = new PDFTextStripper();
-        // stripper.setStartPage(1); //Start extracting from page 3
-        //stripper.setEndPage(2); //Extract till page 5
-//        wr = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output)));
-
-        //String contract = stripper.getText(pd);
-        //String[] lines = contract.split(System.getProperty("line.separator"));
-        ArrayList<Trade> trades = new ArrayList<>();
         File folder = new File(args[1]);
-        if(args.length>3){
-            startDate=args[3];
-            endDate=args[4];
+        String tradesFileName = args[2];
+        String mappingFileName = args[3];
+        if (args.length > 4) {
+            startDate = args[4];
+            endDate = args[5];
+        }
+        if (startDate == null) {
+            if (new File(tradesFileName).exists()) {
+                //read the trade file and get the value of startdate in last row
+                List<String> existingTrades = Files.readAllLines(Paths.get(tradesFileName), StandardCharsets.UTF_8);
+                if (!existingTrades.isEmpty()) {
+                    int size = existingTrades.size();
+                    startDate = existingTrades.get(size - 1).split(",")[3];
+                }
+            }
+        }
+
+        if (new File(mappingFileName).exists()) {
+            List<String> existingMapping = Files.readAllLines(Paths.get(mappingFileName), StandardCharsets.UTF_8);
+            for (String s : existingMapping) {
+                String key = s.split(",")[0];
+                mapping.put(key, s);
+            }
+        }
+        
+        if(broker.equals("IBFNO")){
+            if (new File("symbols-inr.csv").exists()) {
+            List<String> existingMapping = Files.readAllLines(Paths.get("symbols-inr.csv"), StandardCharsets.UTF_8);
+            for (String s : existingMapping) {
+                String key = s.split(",")[1];
+                symbolMapping.put(key, s);
+            }
+        }
         }
         FileInputStream configFile;
         if (new File("logging.properties").exists()) {
@@ -69,53 +92,63 @@ private static final String DIGIT_PATTERN = "\\d+";
         }
         for (File fileEntry : folder.listFiles()) {
             try {
-
+//                if(fileEntry.getName().equals("20151231_Zerodha_FNO.pdf")){
                 fileName = fileEntry.getName();
-                if(startDate==null){
-                    startDate=fileEntry.getName().substring(0, 8);
+                if (startDate == null) {
+                    //startDate=fileEntry.getName().substring(0, 8);
                 }
-                if(endDate==null){
-                    int len=folder.listFiles().length;
-                    endDate=folder.listFiles()[len-1].getName().substring(0,8);
+                if (endDate == null) {
+                    int len = folder.listFiles().length;
+                    endDate = folder.listFiles()[len - 1].getName().substring(0, 8);
                 }
-                if(fileName.contains("pdf") && fileName.substring(0,8).compareTo(startDate)>=0 && fileName.substring(0,8).compareTo(endDate)<=0 ){
-                System.out.println(fileEntry.getName());
-                pd = PDDocument.load(fileEntry);
-                PDFTextStripper stripper = new PDFTextStripper();
-                stripper.setStartPage(0);
-                if(broker.equals("IBFNO")){
-                stripper.setEndPage(pd.getNumberOfPages());                    
-                }else if (broker.equals("ZERODHA")){
-                stripper.setEndPage(pd.getNumberOfPages() - 1);
+                if (fileName.substring(0, 8).contains("Contract") && fileName.contains("FO")) {
+                    int len = fileName.length();
+                    fileName = fileName.substring(len - 12, len - 4) + "_IB_FO.pdf";
                 }
+                if (fileName.substring(0, 8).contains("Contract") && fileName.contains("CM")) {
+                    int len = fileName.length();
+                    fileName = fileName.substring(len - 12, len - 4) + "_IB_CM.pdf";
+                }
+                if (fileName.contains("pdf") && startDate == null || fileName.contains("pdf") && fileName.substring(0, 8).compareTo(startDate) > 0 && fileName.substring(0, 8).compareTo(endDate) <= 0) {
+                    System.out.println(fileEntry.getName());
+                    pd = PDDocument.load(fileEntry);
+                    PDFTextStripper stripper = new PDFTextStripper();
+                    stripper.setStartPage(0);
+                    if (broker.equals("IBFNO")) {
+                        stripper.setEndPage(pd.getNumberOfPages());
+                    } else if (broker.equals("ZERODHA")) {
+                        stripper.setEndPage(pd.getNumberOfPages() - 1);
+                    }
 //                wr = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output)));
-                String contract="";
-                try{
-                 contract = stripper.getText(pd);
-                }catch (Exception e){
-                stripper.setEndPage(pd.getNumberOfPages());
-                 contract = stripper.getText(pd);              }
-                
-                String[] lines = contract.split(System.getProperty("line.separator"));
-                switch (broker) {
+                    String contract = "";
+                    try {
+                        contract = stripper.getText(pd);
+                    } catch (Exception e) {
+                        stripper.setEndPage(pd.getNumberOfPages());
+                        contract = stripper.getText(pd);
+                    }
 
-                    case "IBFNO":
-                        importIBFNO(lines, args[2]);
-                        break;
-                    case "ZERODHA":
-                        importZerodha(lines, args[2], fileName);
-                        break;
-                    default:
-                        break;
-                }
-                if (pd != null) {
-                    pd.close();
-                }
-                // I use close() to flush the stream.
+                    String[] lines = contract.split(System.getProperty("line.separator"));
+                    switch (broker) {
+
+                        case "IBFNO":
+                            importIBFNO(lines, tradesFileName,mappingFileName);
+                            break;
+                        case "ZERODHA":
+                            importZerodha(lines, tradesFileName, mappingFileName, fileName);
+                            break;
+                        default:
+                            break;
+                    }
+                    if (pd != null) {
+                        pd.close();
+                    }
+                    // I use close() to flush the stream.
 //                wr.close();
                 }
-                } catch (Exception e) {
-                    logger.log(Level.SEVERE,null,e);
+//                }
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, null, e);
                 logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
             } finally {
                 if (pd != null) {
@@ -129,12 +162,14 @@ private static final String DIGIT_PATTERN = "\\d+";
         System.out.println("Requires three inputs");
         System.out.println("Input 1: IBFNO or ZERODHA, case sensitive!!");
         System.out.println("Input 2: Directory containing contract notes");
-        System.out.println("Input 3: output file name");
-        System.out.println("Input 4: Optional Start Date formattted as yyyyMMdd");
-        System.out.println("Input 5: Optional End Date formatted as yyyyMMdd");
+        System.out.println("Input 3: output file name containing trades");
+        System.out.println("Input 4: output file name containing mapping");;
+        System.out.println("Input 5: Optional Start Date formattted as yyyyMMdd");
+        System.out.println("Input 6: Optional End Date formatted as yyyyMMdd");
     }
 
-    public static void importIBFNO(String[] lines, String outputFileName) throws IOException {
+    public static void importIBFNO(String[] lines, String outputFileName,String mappingFileName) throws IOException {
+        try{
         if (fileName.contains("FO")) {
             //System.out.println(fileEntry.getName());
             int iClientName = 7;
@@ -194,8 +229,10 @@ private static final String DIGIT_PATTERN = "\\d+";
                         int sizeIndex = iSymbol;
                         for (int j = sizeIndex; j < item.length; j++) {
                             if (isNumeric(item[j])) {
-                                sizeIndex = j;
-                                break;
+                                if (j + 2 < item.length && isNumeric(item[j + 1])) {
+                                    sizeIndex = j;
+                                    break;
+                                }
                             }
                         }
                         //now setup indexes as we know the size of the symbol
@@ -208,15 +245,45 @@ private static final String DIGIT_PATTERN = "\\d+";
                         tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));
                         tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
                         tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));
-                        writeToFile(outputFileName, tr);
+                        writeTradesToFile(outputFileName, tr);
+                                if (mapping.get(tr.symbol) == null) {
+                                SimpleDateFormat sdfddMMMyy = new SimpleDateFormat("ddMMMyy");
+                                SimpleDateFormat sdfyyyyMMdd = new SimpleDateFormat("yyyyMMdd");
+                                Mapping m = new Mapping();
+                                m.brokerSymbol = tr.symbol;
+                                int brokSymbolLength = tr.symbol.length();
+                                if (isInteger(tr.symbol.substring(brokSymbolLength - 2, brokSymbolLength))) {
+                                    //last two digits are a year. Therefore a future
+                                    m.type = "FUT";
+                                    m.right = "XX";
+                                    m.strike = "0";
+                                    m.nseSymbol =m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
+                                    m.expiry = m.brokerSymbol.substring(brokSymbolLength-7, brokSymbolLength);
+                                    m.expiry = sdfyyyyMMdd.format(sdfddMMMyy.parse(m.expiry));
+                                } else {
+                                    m.type = "OPT";
+                                    m.right = m.brokerSymbol.substring(brokSymbolLength - 1, brokSymbolLength).equals("P") ? "PUT" : "CALL";
+                                    m.nseSymbol =m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
+                                    m.expiry = m.brokerSymbol.substring(m.nseSymbol.length()-1,m.nseSymbol.length()+6 );
+                                    m.expiry = sdfyyyyMMdd.format(sdfddMMMyy.parse(m.expiry));
+                                    m.strike=m.brokerSymbol.substring(m.nseSymbol.length()+7-1,brokSymbolLength-1);
+                                    m.strike=m.strike.split("\\.")[0];
+                                }
+                                m.nseSymbol = symbolMapping.get(m.nseSymbol).split(",")[2];
+                                mapping.put(m.brokerSymbol, m.brokerSymbol + "," + m.nseSymbol + "," + m.expiry + "," + m.type + "," + m.right + "," + m.strike);
+                                writeMappingToFile(mappingFileName, m);
+                            }
                     }
                 }
                 //}
             }
         }
+        }catch (Exception e){
+            logger.log(Level.SEVERE,null,e);
+        }
     }
 
-    public static void importZerodha(String[] lines, String outputFileName, String inputFileName) throws IOException {
+    public static void importZerodha(String[] lines, String outputFileName, String mappingFileName, String inputFileName) throws IOException {
         try {
             int iClientName = 7;
             int iTradeNumber = 9;
@@ -240,113 +307,113 @@ private static final String DIGIT_PATTERN = "\\d+";
             Double tradedValue = 0D;
             Double otherLevies = 0D;
             Double brokerage = 0D;
-            Double servicetax=0D;
+            Double servicetax = 0D;
             HashMap<String, Integer> totalOrders = new HashMap<>();
             int startIndex = 0;
             int endIndex = 0;
-                int j=0;
+            int j = 0;
             for (String s : lines) {
                 if (s.contains("Stamp")) {
-                    if(s.matches("(.)*(\\d)(.)*")){
-                    otherLevies = otherLevies + getDouble(getValue(s));
-                    }else{
-                        logger.log(Level.SEVERE,"No Stamp Duty Found. Possible closeout for file {0}",new Object[]{inputFileName});
+                    if (s.matches("(.)*(\\d)(.)*")) {
+                        otherLevies = otherLevies + getDouble(getValue(s));
+                    } else {
+                        logger.log(Level.SEVERE, "No Stamp Duty Found. Possible closeout for file {0}", new Object[]{inputFileName});
                     }
                 }
                 if (s.contains("Sebi Charges")) {
                     String[] substr = s.split(" ");
-                    int len=substr.length;
-                    if(substr.length>=4){
-                    otherLevies = otherLevies + getDouble(getValue(substr[len-1].replaceAll(",", "")));
-                    if(len-3==2){
-                    otherLevies = otherLevies + getDouble(getValue(substr[len-3].replaceAll(",", "")));
-                    }
-                    }else{
-                        s=lines[j+5];
+                    int len = substr.length;
+                    if (substr.length >= 4) {
+                        otherLevies = otherLevies + getDouble(getValue(substr[len - 1].replaceAll(",", "")));
+                        if (len - 3 == 2) {
+                            otherLevies = otherLevies + getDouble(getValue(substr[len - 3].replaceAll(",", "")));
+                        }
+                    } else {
+                        s = lines[j + 5];
                         substr = s.split(" ");
-                    if(substr.length>=4){
-                    otherLevies = otherLevies + getDouble(getValue(substr[1].replaceAll(",", "")));
-                    otherLevies = otherLevies + getDouble(getValue(substr[3].replaceAll(",", "")));
-                        
-                    }else{
-                        logger.log(Level.SEVERE,"Sebi Charges not updated correctly for file {0}",new Object[]{inputFileName});
-                    }
+                        if (substr.length >= 4) {
+                            otherLevies = otherLevies + getDouble(getValue(substr[1].replaceAll(",", "")));
+                            otherLevies = otherLevies + getDouble(getValue(substr[3].replaceAll(",", "")));
+
+                        } else {
+                            logger.log(Level.SEVERE, "Sebi Charges not updated correctly for file {0}", new Object[]{inputFileName});
+                        }
                     }
                 }
 
-                if (s.contains("Total Brokerage") && !s.contains("Gross") ) {
+                if (s.contains("Total Brokerage") && !s.contains("Gross")) {
                     String[] substr = s.split(" ");
-                    if(substr.length>=4){
-                    brokerage = getDouble(getValue(substr[3].replaceAll(",", "")));
-                    }else{
-                       s=lines[j+2];
-                       substr=s.split(" ");
-                       if(substr.length>=6){
-                       brokerage = getDouble(getValue(substr[5].replaceAll(",", "")));
-                       }else{
-                           logger.log(Level.SEVERE,"No Brokerage Found. Possible Closeout for file {0}",new Object[]{inputFileName});
-                       }
-                       
+                    if (substr.length >= 4) {
+                        brokerage = getDouble(getValue(substr[3].replaceAll(",", "")));
+                    } else {
+                        s = lines[j + 2];
+                        substr = s.split(" ");
+                        if (substr.length >= 6) {
+                            brokerage = getDouble(getValue(substr[5].replaceAll(",", "")));
+                        } else {
+                            logger.log(Level.SEVERE, "No Brokerage Found. Possible Closeout for file {0}", new Object[]{inputFileName});
+                        }
+
                     }
-                    }
-                if (s.contains("Service Tax")&& !s.contains("Service Tax No")) {
+                }
+                if (s.contains("Service Tax") && !s.contains("Service Tax No")) {
                     String[] substr = s.split(" ");
-                    if(substr.length==4){
-                     servicetax= getDouble(getValue(substr[3].replaceAll(",", "")));
+                    if (substr.length == 4) {
+                        servicetax = getDouble(getValue(substr[3].replaceAll(",", "")));
                     }
                 }
 
                 String[] item = s.split(" ");
                 boolean error = false;
                 if (isNumeric(item[0])) {
-                    if (getDouble(item[0]) > 200000 ||((item.length>2) && item[1].trim().contains("00:00:00"))) {
+                    if (getDouble(item[0]) > 200000 || ((item.length > 2) && item[1].trim().contains("00:00:00"))) {
                         if (item.length < 11) {
                             //broken format. print line and move on
                             logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, s});
                             error = true;
                         }
                         if (!error) {
-                            String contractType="irregular";
-                            int countertype=0;
-                            for (String s1 : item) {          
+                            String contractType = "irregular";
+                            int countertype = 0;
+                            for (String s1 : item) {
                                 String[] substr = s1.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                                if(substr.length==2 && isInteger(substr[0]) && !isInteger(substr[1])){
-                                    contractType="regular";
+                                if (substr.length == 2 && isInteger(substr[0]) && !isInteger(substr[1])) {
+                                    contractType = "regular";
                                     break;
                                 }
                                 countertype++;
-                                
+
                             }
                             int suborders = totalOrders.get(item[0]) != null ? totalOrders.get(item[0]) + 1 : 1;
                             totalOrders.put(item[0], suborders);
-                            switch(contractType){
+                            switch (contractType) {
                                 case "regular":
-                            for (int counter = 0; counter < item.length; counter++) {
-                                String str = item[counter];
-                                String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                                if (substr.length == 2) {
-                                    if (isNumeric(substr[0]) && substr[1].matches("[a-zA-Z]+")) {
-                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                    for (int counter = 0; counter < item.length; counter++) {
+                                        String str = item[counter];
+                                        String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                                        if (substr.length == 2) {
+                                            if (isNumeric(substr[0]) && substr[1].matches("[a-zA-Z]+")) {
+                                                tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
 
+                                            }
+                                        }
                                     }
-                                }
-                            }
-                            break;
+                                    break;
                                 case "irregular":
-                             int rowcounter=0;
-                            for (int counter = 0; counter < item.length; counter++) {
-                                String str = item[counter];
-                             String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                            
-                                if (rowcounter>=2 && isInteger(substr[0])) {
-                                    if (isNumeric(substr[0])) {
-                                        tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
-                                        break;
-                                    } 
-                                }
-                                rowcounter++;
-                            }
-                             break;
+                                    int rowcounter = 0;
+                                    for (int counter = 0; counter < item.length; counter++) {
+                                        String str = item[counter];
+                                        String[] substr = str.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+
+                                        if (rowcounter >= 2 && isInteger(substr[0])) {
+                                            if (isNumeric(substr[0])) {
+                                                tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                                break;
+                                            }
+                                        }
+                                        rowcounter++;
+                                    }
+                                    break;
                                 default:
                                     break;
                             }
@@ -362,7 +429,7 @@ private static final String DIGIT_PATTERN = "\\d+";
                 String[] item = lines[i].split(" ");
                 boolean error = false;
                 if (isNumeric(item[0])) {
-                    if (getDouble(item[0]) > 200000||item[1].contains("00:00:00")) {
+                    if (getDouble(item[0]) > 200000 || item[1].contains("00:00:00")) {
                         if (item.length < 11) {
                             //broken format. print line and move on
                             logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
@@ -387,64 +454,64 @@ private static final String DIGIT_PATTERN = "\\d+";
                                 }
                             }
                             //get side
-                            String contractType="irregular";
-                            int countertype=0;
-                            for (String s : item) {          
+                            String contractType = "irregular";
+                            int countertype = 0;
+                            for (String s : item) {
                                 String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                                if(substr.length==2 && isInteger(substr[0]) && !isInteger(substr[1])){
-                                    contractType="regular";
+                                if (substr.length == 2 && isInteger(substr[0]) && !isInteger(substr[1])) {
+                                    contractType = "regular";
                                     break;
                                 }
                                 countertype++;
-                                
+
                             }
-                            
-                            switch(contractType){
-                            case "regular":
-                            for (String s : item) {
-                                String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                                if (substr.length == 2) {
-                                    if (isNumeric(substr[0]) && !substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
-                                        tr.side = "Sell";
-                                        tr.symbol = substr[1];
-                                        itemValue = Math.abs(getDouble(substr[0]));
-                                        break;
-                                    } else if (isNumeric(substr[0]) && substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
-                                        tr.side = "Buy";
-                                        tr.symbol = substr[1];
-                                        itemValue = Math.abs(getDouble(substr[0]));
-                                        break;
+
+                            switch (contractType) {
+                                case "regular":
+                                    for (String s : item) {
+                                        String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+                                        if (substr.length == 2) {
+                                            if (isNumeric(substr[0]) && !substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
+                                                tr.side = "Sell";
+                                                tr.symbol = substr[1];
+                                                itemValue = Math.abs(getDouble(substr[0]));
+                                                break;
+                                            } else if (isNumeric(substr[0]) && substr[0].contains("-") && substr[1].matches("[a-zA-Z]+")) {
+                                                tr.side = "Buy";
+                                                tr.symbol = substr[1];
+                                                itemValue = Math.abs(getDouble(substr[0]));
+                                                break;
+                                            }
+                                        }
                                     }
-                                }
-                            }
-                            break;
-                                    
+                                    break;
+
                                 case "irregular":
-                             int rowcounter=0;
-                             for (String s : item) {
-                             String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
-                            
-                                if (rowcounter>=2 && isInteger(substr[0])) {
-                                    if (isNumeric(substr[0]) && !substr[0].contains("-")) {
-                                        tr.side = "Sell";
-                                        tr.symbol = item[6];
-                                        itemValue = Math.abs(getDouble(substr[0]));
-                                       // tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
-                                        break;
-                                    } else if (isNumeric(substr[0]) && substr[0].contains("-") ) {
-                                        tr.side = "Buy";
-                                        tr.symbol = item[6];
-                                        itemValue = Math.abs(getDouble(substr[0]));
-                                      //  tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
-                                        break;
+                                    int rowcounter = 0;
+                                    for (String s : item) {
+                                        String[] substr = s.split("(?<=\\D)(?=\\d\\.\\d\\d)|(?<=\\d\\.\\d\\d)(?=\\D)");
+
+                                        if (rowcounter >= 2 && isInteger(substr[0])) {
+                                            if (isNumeric(substr[0]) && !substr[0].contains("-")) {
+                                                tr.side = "Sell";
+                                                tr.symbol = item[6];
+                                                itemValue = Math.abs(getDouble(substr[0]));
+                                                // tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                                break;
+                                            } else if (isNumeric(substr[0]) && substr[0].contains("-")) {
+                                                tr.side = "Buy";
+                                                tr.symbol = item[6];
+                                                itemValue = Math.abs(getDouble(substr[0]));
+                                                //  tradedValue = tradedValue + Math.abs(getDouble(substr[0]));
+                                                break;
+                                            }
+                                        }
+                                        rowcounter++;
                                     }
-                                }
-                                rowcounter++;
-                            }
-                             break;
+                                    break;
                                 default:
                                     break;
-                                    
+
                             }
 
                             //concatenate symbol name
@@ -468,67 +535,67 @@ private static final String DIGIT_PATTERN = "\\d+";
                                     tr.symbol = tr.symbol + item[c];
                                 }
                             }
-                            switch(contractType){
+                            switch (contractType) {
                                 case "regular":
-                            tr.tradeNumber = item[endIndex + 1];
-                            switch (item.length) {
-                                case 20:
-                                    if (getDouble(item[0]) > 1000000) {
-                                        tr.size = getInteger(item[endIndex + 4]);
-                                        tr.price = getDouble(item[endIndex + 6]);
-                                    } else {
-                                        //handling closeout
-                                        tr.size = getInteger(item[endIndex + 6]);
-                                        tr.price = getDouble(item[endIndex + 8]);
-                                    }
-                                    break;
+                                    tr.tradeNumber = item[endIndex + 1];
+                                    switch (item.length) {
+                                        case 20:
+                                            if (getDouble(item[0]) > 1000000) {
+                                                tr.size = getInteger(item[endIndex + 4]);
+                                                tr.price = getDouble(item[endIndex + 6]);
+                                            } else {
+                                                //handling closeout
+                                                tr.size = getInteger(item[endIndex + 6]);
+                                                tr.price = getDouble(item[endIndex + 8]);
+                                            }
+                                            break;
 
-                                case 22:
-                                    tr.size = getInteger(item[endIndex + 6]);
-                                    tr.price = getDouble(item[endIndex + 8]);
-                                default:
-                                    if (tr.side.equals("Buy")) {
-                                        tr.size = getInteger(item[endIndex + 4]);
-                                        tr.price = getDouble(item[endIndex + 6]);
-                                    } else if (tr.side.equals("Sell") && !item[1].contains("00:00:00")) {
-                                        tr.size = getInteger(item[endIndex + 6]);
-                                        tr.price = getDouble(item[endIndex + 8]);
-                                    }else if(tr.side.equals("Sell") && item[1].contains("00:00:00")){
-                                        tr.size = getInteger(item[endIndex + 4]);
-                                        tr.price = getDouble(item[endIndex + 6]);
+                                        case 22:
+                                            tr.size = getInteger(item[endIndex + 6]);
+                                            tr.price = getDouble(item[endIndex + 8]);
+                                        default:
+                                            if (tr.side.equals("Buy")) {
+                                                tr.size = getInteger(item[endIndex + 4]);
+                                                tr.price = getDouble(item[endIndex + 6]);
+                                            } else if (tr.side.equals("Sell") && !item[1].contains("00:00:00")) {
+                                                tr.size = getInteger(item[endIndex + 6]);
+                                                tr.price = getDouble(item[endIndex + 8]);
+                                            } else if (tr.side.equals("Sell") && item[1].contains("00:00:00")) {
+                                                tr.size = getInteger(item[endIndex + 4]);
+                                                tr.price = getDouble(item[endIndex + 6]);
+                                            }
+                                            break;
                                     }
                                     break;
-                            }
-                            break;
-                            case "irregular":
-                            tr.tradeNumber = item[4];
-                            if(getInteger(item[3])>0){
-                                tr.size = getInteger(item[3]);
-                                tr.price = getDouble(item[endIndex+2]);                                
-                            }else{
-                                tr.size = getInteger(item[endIndex+2]);
-                                tr.price=getDouble(item[endIndex+4]);                                
-                            }
-                            
-                            break;
+                                case "irregular":
+                                    tr.tradeNumber = item[4];
+                                    if (getInteger(item[3]) > 0) {
+                                        tr.size = getInteger(item[3]);
+                                        tr.price = getDouble(item[endIndex + 2]);
+                                    } else {
+                                        tr.size = getInteger(item[endIndex + 2]);
+                                        tr.price = getDouble(item[endIndex + 4]);
+                                    }
+
+                                    break;
                                 default:
                                     break;
                             }
 
                             tr.brokerage = brokerage / (totalOrders.size() * totalOrders.get(item[0]));
-                            tr.serviceTax=servicetax* itemValue / tradedValue;
+                            tr.serviceTax = servicetax * itemValue / tradedValue;
                             if (tr.side.equals("Buy") && !option) {
                                 //tr.serviceTax = getDouble(item[startIndex - 3]);
                                 tr.stt = 0D;
                             } else if (tr.side.equals("Sell") && !option) {
                                 if (getDouble(item[0]) > 1000000) {
-                                  //  tr.serviceTax = getDouble(item[startIndex - 6]);
+                                    //  tr.serviceTax = getDouble(item[startIndex - 6]);
                                     //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
                                     //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
-                                    if(contractType.equals("regular")){
-                                    tr.stt = getDouble(item[startIndex - 4]);
-                                    }else{
-                                        tr.stt=getDouble(item[endIndex+10]);
+                                    if (contractType.equals("regular")) {
+                                        tr.stt = getDouble(item[startIndex - 4]);
+                                    } else {
+                                        tr.stt = getDouble(item[endIndex + 10]);
                                     }
                                 } else {
                                     //handling closeout
@@ -546,30 +613,58 @@ private static final String DIGIT_PATTERN = "\\d+";
                                 //tr.serviceTax = getDouble(item[startIndex - 8]);
                                 //tr.serviceTax = tr.serviceTax + 0.03 * tr.serviceTax;//edu tax and surcharge
                                 //tr.serviceTax = tr.serviceTax + tr.brokerage * 0.1236;
-                                if(contractType.equals("regular")){
-                                tr.stt = getDouble(item[startIndex - 6]);
-                                }else{
-                                    if(item.length>endIndex+10){
-                                    tr.stt=getDouble(item[endIndex+10]);
-                                }else{
-                                        logger.log(Level.SEVERE,"No STT Found. Possible Closeout for file {0}",new Object[]{inputFileName});
+                                if (contractType.equals("regular")) {
+                                    tr.stt = getDouble(item[startIndex - 6]);
+                                } else {
+                                    if (item.length > endIndex + 10) {
+                                        tr.stt = getDouble(item[endIndex + 10]);
+                                    } else {
+                                        logger.log(Level.SEVERE, "No STT Found. Possible Closeout for file {0}", new Object[]{inputFileName});
                                     }
                                 }
                             }
                             tr.otherLevies = otherLevies * itemValue / tradedValue;
-                            writeToFile(outputFileName, tr);
+                            writeTradesToFile(outputFileName, tr);
+                            if (mapping.get(tr.symbol) == null) {
+                                SimpleDateFormat sdfddMMMyyyy = new SimpleDateFormat("ddMMMyyyy");
+                                SimpleDateFormat sdfyyyyMMdd = new SimpleDateFormat("yyyyMMdd");
+                                Mapping m = new Mapping();
+                                m.brokerSymbol = tr.symbol;
+                                int brokSymbolLength = tr.symbol.length();
+                                if (isInteger(tr.symbol.substring(brokSymbolLength - 5, brokSymbolLength - 1))) {
+                                    //last four digits are a year. Therefore a future
+                                    m.type = "FUT";
+                                    m.right = "XX";
+                                    m.strike = "0";
+                                    int futStringStart = m.brokerSymbol.indexOf("FUT");
+                                    m.nseSymbol = m.brokerSymbol.substring(0, futStringStart);
+                                    m.expiry = m.brokerSymbol.split(")")[1];
+                                    m.expiry = sdfyyyyMMdd.format(sdfddMMMyyyy.parse(m.expiry));
+                                } else {
+                                    m.type = "OPT";
+                                    m.right = m.brokerSymbol.substring(brokSymbolLength - 3, brokSymbolLength - 1).equals("PE") ? "PUT" : "CALL";
+                                    m.strike = m.brokerSymbol.split("/")[1];
+                                    int optStringStart = m.brokerSymbol.indexOf("OPT");
+                                    m.nseSymbol = m.brokerSymbol.substring(0, optStringStart);
+                                    m.expiry = m.brokerSymbol.split("/")[2].split("\\(")[0];
+                                    m.expiry = sdfyyyyMMdd.format(sdfddMMMyyyy.parse(m.expiry));
+                                }
+                                m.nseSymbol = m.nseSymbol.equals("NIFTY") ? "NSENIFTY" : m.nseSymbol;
+                                mapping.put(m.brokerSymbol, m.brokerSymbol + "," + m.nseSymbol + "," + m.expiry + "," + m.type + "," + m.right + "," + m.strike);
+                                writeMappingToFile(mappingFileName, m);
+                            }
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            logger.log(Level.SEVERE,null,e);
-            logger.log(Level.SEVERE, "Error:{0},Symbol:{1}", new Object[]{e,inputFileName});
+            logger.log(Level.SEVERE, null, e);
+            logger.log(Level.SEVERE, "Error:{0},Symbol:{1}", new Object[]{e, inputFileName});
         }
     }
 
-        public static boolean isInteger(String str) {
-        if (str == null||str.isEmpty()) {
+    public static boolean isInteger(String str) {
+        if (str == null || str.isEmpty()) {
             return false;
         }
         str = str.trim();
@@ -586,14 +681,14 @@ private static final String DIGIT_PATTERN = "\\d+";
         }
         for (; i < length; i++) {
             char c = str.charAt(i);
-            if ((c <= '/' || c >= ':') && c!='.') {
+            if ((c <= '/' || c >= ':') && c != '.') {
                 return false;
             }
         }
         return true;
     }
 
-    public static void writeToFile(String filename, Trade tr) throws IOException {
+    public static void writeTradesToFile(String filename, Trade tr) throws IOException {
 
         File file = new File(filename);
 
@@ -620,6 +715,27 @@ private static final String DIGIT_PATTERN = "\\d+";
                 + tr.serviceTax + delimiter + tr.stt + delimiter + tr.otherLevies + delimiter + netamount + newline);
 
 
+        bufferWritter.close();
+    }
+
+    public static void writeMappingToFile(String filename, Mapping m) throws IOException {
+
+        File file = new File(filename);
+
+        //if file doesnt exists, then create it
+        boolean writeHeader = false;
+        if (!file.exists()) {
+            file.createNewFile();
+            writeHeader = true;
+
+        }
+        FileWriter fileWritter = new FileWriter(file, true);
+
+        BufferedWriter bufferWritter = new BufferedWriter(fileWritter);
+        if (writeHeader) {
+            bufferWritter.write("BrokerSymbol" + delimiter + "NSESymbol" + delimiter + "Expiry" + delimiter + "Type" + delimiter + "Strike" + delimiter + "Right" + newline);
+        }
+        bufferWritter.write(m.brokerSymbol.replaceAll(" ", "") + delimiter + m.nseSymbol.replaceAll(" ", "") + delimiter + m.expiry.replaceAll(" ", "").replaceAll(",", "") + delimiter + m.type + delimiter + m.strike + delimiter + m.right + newline);
         bufferWritter.close();
     }
 
