@@ -288,7 +288,7 @@ public class Contractnote {
                                     m.expiry = m.brokerSymbol.substring(m.nseSymbol.length() - 1, m.nseSymbol.length() + 6);
                                     m.expiry = sdfyyyyMMdd.format(sdfddMMMyy.parse(m.expiry));
                                     m.strike = m.brokerSymbol.substring(m.nseSymbol.length() + 7 - 1, brokSymbolLength - 1);
-                                    m.strike = m.strike.split("\\.")[0];
+                                    m.strike = m.strike.indexOf(".") < 0 ? m.strike : m.strike.replaceAll("0*$", "").replaceAll("\\.$", ""); //remove trailing zeroes
                                 }
                                 m.nseSymbol = symbolMapping.get(m.nseSymbol).split(",")[2];
                                 mapping.put(m.brokerSymbol, m.brokerSymbol + "," + m.nseSymbol + "," + m.expiry + "," + m.type + "," + m.right + "," + m.strike);
@@ -671,6 +671,7 @@ public class Contractnote {
                                     m.type = "OPT";
                                     m.right = m.brokerSymbol.substring(brokSymbolLength - 3, brokSymbolLength - 1).equals("PE") ? "PUT" : "CALL";
                                     m.strike = m.brokerSymbol.split("/")[1];
+                                    m.strike = m.strike.indexOf(".") < 0 ? m.strike : m.strike.replaceAll("0*$", "").replaceAll("\\.$", ""); //remove trailing zeroes
                                     int optStringStart = m.brokerSymbol.indexOf("OPT");
                                     m.nseSymbol = m.brokerSymbol.substring(0, optStringStart);
                                     m.expiry = m.brokerSymbol.split("/")[2].split("\\(")[0];
