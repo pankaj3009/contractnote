@@ -94,7 +94,7 @@ public class Contractnote {
         Arrays.sort(files);
         for (File fileEntry : files) {
             try {
-               // if (fileEntry.getName().equals("20160511_Zerodha_FNO.pdf")) {
+//                if (fileEntry.getName().equals("20160428_Zerodha_FNO.pdf")) {
                     fileName = fileEntry.getName();
                     if (startDate == null) {
                         //startDate=fileEntry.getName().substring(0, 8);
@@ -148,7 +148,7 @@ public class Contractnote {
                         // I use close() to flush the stream.
 //                wr.close();
                     }
-  //              }
+//                }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, null, e);
                 logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
@@ -379,8 +379,8 @@ public class Contractnote {
                 }
                 if (s.contains("Service Tax") && !s.contains("Service Tax No")) {
                     String[] substr = s.split(" ");
-                    if (substr.length == 4) {
-                        servicetax = getDouble(getValue(substr[3].replaceAll(",", "")));
+                    if (substr.length >= 4) {
+                        servicetax = getDouble(getValue(substr[substr.length-1].replaceAll(",", "")));
                     }
                 }
                 if (s.contains("Swachh")) {
