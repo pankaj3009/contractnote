@@ -90,65 +90,65 @@ public class Contractnote {
             configFile = new FileInputStream("logging.properties");
             LogManager.getLogManager().readConfiguration(configFile);
         }
-        File[] files=folder.listFiles();
+        File[] files = folder.listFiles();
         Arrays.sort(files);
-        for (File fileEntry :files ) {
+        for (File fileEntry : files) {
             try {
-//                if(fileEntry.getName().equals("20151231_Zerodha_FNO.pdf")){
-                fileName = fileEntry.getName();
-                if (startDate == null) {
-                    //startDate=fileEntry.getName().substring(0, 8);
-                }
-                if (endDate == null) {
-                    int len = folder.listFiles().length;
-                    endDate = folder.listFiles()[len - 1].getName().substring(0, 8);
-                }
-                if (fileName.substring(0, 8).contains("Contract") && fileName.contains("FO")) {
-                    int len = fileName.length();
-                    fileName = fileName.substring(len - 12, len - 4) + "_IB_FO.pdf";
-                }
-                if (fileName.substring(0, 8).contains("Contract") && fileName.contains("CM")) {
-                    int len = fileName.length();
-                    fileName = fileName.substring(len - 12, len - 4) + "_IB_CM.pdf";
-                }
-                if (fileName.contains("pdf") && startDate == null || fileName.contains("pdf") && fileName.substring(0, 8).compareTo(startDate) > 0 && fileName.substring(0, 8).compareTo(endDate) <= 0) {
-                    System.out.println(fileEntry.getName());
-                    pd = PDDocument.load(fileEntry);
-                    PDFTextStripper stripper = new PDFTextStripper();
-                    stripper.setStartPage(0);
-                    if (broker.equals("IBFNO")) {
-                        stripper.setEndPage(pd.getNumberOfPages());
-                    } else if (broker.equals("ZERODHA")) {
-                        stripper.setEndPage(pd.getNumberOfPages() - 1);
+               // if (fileEntry.getName().equals("20160511_Zerodha_FNO.pdf")) {
+                    fileName = fileEntry.getName();
+                    if (startDate == null) {
+                        //startDate=fileEntry.getName().substring(0, 8);
                     }
+                    if (endDate == null) {
+                        int len = folder.listFiles().length;
+                        endDate = folder.listFiles()[len - 1].getName().substring(0, 8);
+                    }
+                    if (fileName.substring(0, 8).contains("Contract") && fileName.contains("FO")) {
+                        int len = fileName.length();
+                        fileName = fileName.substring(len - 12, len - 4) + "_IB_FO.pdf";
+                    }
+                    if (fileName.substring(0, 8).contains("Contract") && fileName.contains("CM")) {
+                        int len = fileName.length();
+                        fileName = fileName.substring(len - 12, len - 4) + "_IB_CM.pdf";
+                    }
+                    if (fileName.contains("pdf") && startDate == null || fileName.contains("pdf") && fileName.substring(0, 8).compareTo(startDate) > 0 && fileName.substring(0, 8).compareTo(endDate) <= 0) {
+                        System.out.println(fileEntry.getName());
+                        pd = PDDocument.load(fileEntry);
+                        PDFTextStripper stripper = new PDFTextStripper();
+                        stripper.setStartPage(0);
+                        if (broker.equals("IBFNO")) {
+                            stripper.setEndPage(pd.getNumberOfPages());
+                        } else if (broker.equals("ZERODHA")) {
+                            stripper.setEndPage(pd.getNumberOfPages() - 1);
+                        }
 //                wr = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output)));
-                    String contract = "";
-                    try {
-                        contract = stripper.getText(pd);
-                    } catch (Exception e) {
-                        stripper.setEndPage(pd.getNumberOfPages());
-                        contract = stripper.getText(pd);
-                    }
+                        String contract = "";
+                        try {
+                            contract = stripper.getText(pd);
+                        } catch (Exception e) {
+                            stripper.setEndPage(pd.getNumberOfPages());
+                            contract = stripper.getText(pd);
+                        }
 
-                    String[] lines = contract.split(System.getProperty("line.separator"));
-                    switch (broker) {
+                        String[] lines = contract.split(System.getProperty("line.separator"));
+                        switch (broker) {
 
-                        case "IBFNO":
-                            importIBFNO(lines, tradesFileName, mappingFileName);
-                            break;
-                        case "ZERODHA":
-                            importZerodha(lines, tradesFileName, mappingFileName, fileName);
-                            break;
-                        default:
-                            break;
-                    }
-                    if (pd != null) {
-                        pd.close();
-                    }
-                    // I use close() to flush the stream.
+                            case "IBFNO":
+                                importIBFNO(lines, tradesFileName, mappingFileName);
+                                break;
+                            case "ZERODHA":
+                                importZerodha(lines, tradesFileName, mappingFileName, fileName);
+                                break;
+                            default:
+                                break;
+                        }
+                        if (pd != null) {
+                            pd.close();
+                        }
+                        // I use close() to flush the stream.
 //                wr.close();
-                }
-//                }
+                    }
+  //              }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, null, e);
                 logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
@@ -386,7 +386,7 @@ public class Contractnote {
                 if (s.contains("Swachh")) {
                     String[] substr = s.split(" ");
                     if (substr.length == 5) {
-                        servicetax = servicetax+getDouble(getValue(substr[4].replaceAll(",", "")));
+                        servicetax = servicetax + getDouble(getValue(substr[4].replaceAll(",", "")));
                     }
                 }
 
