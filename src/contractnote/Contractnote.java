@@ -23,9 +23,10 @@ import java.util.logging.LogManager;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.pdfbox.exceptions.COSVisitorException;
+//import org.apache.pdfbox.exceptions.COSVisitorException;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.util.PDFTextStripper;
+import org.apache.pdfbox.text.PDFTextStripper;
+//import org.apache.pdfbox.util.PDFTextStripper;
 
 /**
  *
@@ -47,7 +48,7 @@ public class Contractnote {
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) throws IOException, COSVisitorException {
+    public static void main(String[] args) throws IOException {//,COSVisitorException
         usage();
         String broker = args[0];
         File folder = new File(args[1]);
@@ -94,7 +95,7 @@ public class Contractnote {
         Arrays.sort(files);
         for (File fileEntry : files) {
             try {
-//                if (fileEntry.getName().equals("20160128_Zerodha_FNO.pdf")) {
+ //               if (fileEntry.getName().equals("20150518_Zerodha_FNO.ERROR.pdf")) {
                     fileName = fileEntry.getName();
                     if (startDate == null) {
                         //startDate=fileEntry.getName().substring(0, 8);
@@ -111,7 +112,7 @@ public class Contractnote {
                         int len = fileName.length();
                         fileName = fileName.substring(len - 12, len - 4) + "_IB_CM.pdf";
                     }
-                    if (fileName.contains("pdf") && startDate == null || fileName.contains("pdf") && fileName.substring(0, 8).compareTo(startDate) > 0 && fileName.substring(0, 8).compareTo(endDate) <= 0) {
+                    if (!fileName.contains("ERROR") && fileName.contains("pdf") && (startDate == null || (fileName.contains("pdf") && fileName.substring(0, 8).compareTo(startDate) > 0)) && fileName.substring(0, 8).compareTo(endDate) <= 0) {
                         System.out.println(fileEntry.getName());
                         pd = PDDocument.load(fileEntry);
                         PDFTextStripper stripper = new PDFTextStripper();
@@ -148,7 +149,7 @@ public class Contractnote {
                         // I use close() to flush the stream.
 //                wr.close();
                     }
-//                }
+ //               }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, null, e);
                 logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
