@@ -94,7 +94,7 @@ public class Contractnote {
         Arrays.sort(files);
         for (File fileEntry : files) {
             try {
-//                if (fileEntry.getName().equals("20160428_Zerodha_FNO.pdf")) {
+//                if (fileEntry.getName().equals("20160128_Zerodha_FNO.pdf")) {
                     fileName = fileEntry.getName();
                     if (startDate == null) {
                         //startDate=fileEntry.getName().substring(0, 8);
@@ -665,7 +665,8 @@ public class Contractnote {
                                     m.strike = "0";
                                     int futStringStart = m.brokerSymbol.indexOf("FUT");
                                     m.nseSymbol = m.brokerSymbol.substring(0, futStringStart);
-                                    m.expiry = m.brokerSymbol.split(")")[1];
+//                                    String openingBrace=")";
+                                    m.expiry = m.brokerSymbol.split(Pattern.quote("("))[1];
                                     m.expiry = sdfyyyyMMdd.format(sdfddMMMyyyy.parse(m.expiry));
                                 } else {
                                     m.type = "OPT";
