@@ -95,7 +95,7 @@ public class Contractnote {
         Arrays.sort(files);
         for (File fileEntry : files) {
             try {
- //               if (fileEntry.getName().equals("20150518_Zerodha_FNO.ERROR.pdf")) {
+//                if (fileEntry.getName().equals("ContractNote.FO.20150611.pdf")) {
                     fileName = fileEntry.getName();
                     if (startDate == null) {
                         //startDate=fileEntry.getName().substring(0, 8);
@@ -110,14 +110,14 @@ public class Contractnote {
                     }
                     if (fileName.substring(0, 8).contains("Contract") && fileName.contains("CM")) {
                         int len = fileName.length();
-                        fileName = fileName.substring(len - 12, len - 4) + "_IB_CM.pdf";
+                        fileName="ContractNote.CM."+fileName.substring(len - 12, len - 4)+".pdf";
                     }
                     if (!fileName.contains("ERROR") && fileName.contains("pdf") && (startDate == null || (fileName.contains("pdf") && fileName.substring(0, 8).compareTo(startDate) > 0)) && fileName.substring(0, 8).compareTo(endDate) <= 0) {
                         System.out.println(fileEntry.getName());
                         pd = PDDocument.load(fileEntry);
                         PDFTextStripper stripper = new PDFTextStripper();
                         stripper.setStartPage(0);
-                        if (broker.equals("IBFNO")) {
+                        if (broker.equals("IBFNO")||broker.equals("IBCM")) {
                             stripper.setEndPage(pd.getNumberOfPages());
                         } else if (broker.equals("ZERODHA")) {
                             stripper.setEndPage(pd.getNumberOfPages() - 1);
@@ -137,6 +137,10 @@ public class Contractnote {
                             case "IBFNO":
                                 importIBFNO(lines, tradesFileName, mappingFileName);
                                 break;
+                            case "IBCM":
+                                importIBCM(lines, tradesFileName, mappingFileName);
+                                break;
+                                
                             case "ZERODHA":
                                 importZerodha(lines, tradesFileName, mappingFileName, fileName);
                                 break;
@@ -149,7 +153,7 @@ public class Contractnote {
                         // I use close() to flush the stream.
 //                wr.close();
                     }
- //               }
+//                }
             } catch (Exception e) {
                 logger.log(Level.SEVERE, null, e);
                 logger.log(Level.SEVERE, "Error reading pdf: {0}", new Object[]{fileEntry});
@@ -243,12 +247,24 @@ public class Contractnote {
                                 tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
                             }
                             int category = 0;
-                            category = tr.tradeDate.compareTo("20151126") < 0 ? 1 : 2;
+                            category = tr.tradeDate.compareTo("20150421") < 0 ? 1 : 2;
+                            if(category==2){
+                            category = tr.tradeDate.compareTo("20151126") < 0 ? 2 : 3;                                
+                            }
                             /*
+                             * 20150422: Contract note split other levies into two columns
                              * 20151126: IB Added Swach Bharat Cess Column
                              */
                             switch (category) {
-                                case 1:
+                                case 1: //No swach Bharat Cess
+                                    tr.size = Math.abs(getInteger(item[sizeIndex]));
+                                    tr.price = getDouble(item[sizeIndex + 1]);
+                                    tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));//Other Levies
+                                    break;
+                                case 2: //No swach Bharat Cess
                                     tr.size = Math.abs(getInteger(item[sizeIndex]));
                                     tr.price = getDouble(item[sizeIndex + 1]);
                                     tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
@@ -256,7 +272,7 @@ public class Contractnote {
                                     tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
                                     tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6])) + Math.abs(getDouble(item[sizeIndex + 7]));//Stamp Duty + Exchange Charges
                                     break;
-                                case 2:
+                                case 3: //with swach bharat cess
                                     tr.size = Math.abs(getInteger(item[sizeIndex]));
                                     tr.price = getDouble(item[sizeIndex + 1]);
                                     tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
@@ -286,7 +302,11 @@ public class Contractnote {
                                     m.type = "OPT";
                                     m.right = m.brokerSymbol.substring(brokSymbolLength - 1, brokSymbolLength).equals("P") ? "PUT" : "CALL";
                                     m.nseSymbol = m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
-                                    m.expiry = m.brokerSymbol.substring(m.nseSymbol.length() - 1, m.nseSymbol.length() + 6);
+                                    if(m.nseSymbol.equals("NIFTY")){
+                                    m.expiry = m.brokerSymbol.substring(m.nseSymbol.length()+2, m.nseSymbol.length() + 9);                                        
+                                    }else{
+                                    m.expiry = m.brokerSymbol.substring(m.nseSymbol.length(), m.nseSymbol.length() + 7);                                        
+                                    }
                                     m.expiry = sdfyyyyMMdd.format(sdfddMMMyy.parse(m.expiry));
                                     m.strike = m.brokerSymbol.substring(m.nseSymbol.length() + 7 - 1, brokSymbolLength - 1);
                                     m.strike = m.strike.indexOf(".") < 0 ? m.strike : m.strike.replaceAll("0*$", "").replaceAll("\\.$", ""); //remove trailing zeroes
@@ -304,6 +324,153 @@ public class Contractnote {
             logger.log(Level.SEVERE, null, e);
         }
     }
+
+    public static void importIBCM(String[] lines, String outputFileName, String mappingFileName) throws IOException {
+        try {
+            if (fileName.contains("CM")) {
+                //System.out.println(fileEntry.getName());
+                int iClientName = 7;
+                int iTradeNumber = 2;
+                int iOrderTime = 1;
+                int iExecutionTime = 3;
+                int iSide = 4;
+                int iSymbol = 5;
+                int iSize = -1;
+                int iPrice = -1;
+                int iBrokerage = -1;
+                int iServiceTax = -1;
+                int iOtherLevies = -1;
+                String reference = null;
+                String contractDate = null;
+                String clientName = null;
+                for (int i = 0; i < lines.length; i++) {
+                    String[] temp = lines[i].split(" ");
+                    if (temp.length == 4 && temp[0].equals("Contract") && temp[1].equals("Note") && temp[2].equals("Number") && isNumeric(temp[3])) {
+                        reference = lines[i].split(" ")[3];
+                    }
+                    if (temp.length == 3 && temp[0].trim().equals("Trade") && temp[1].trim().equals("Date")) {
+                        contractDate = lines[i].split(" ")[2].replace("-", "");
+                    }
+                    if (temp.length > 2 && temp[0].equals("Client") && temp[1].equals("Name")) {
+                        clientName = lines[i].substring(11);
+                    }
+
+                }
+
+                for (int i = 0; i < lines.length; i++) {
+                    String[] item = lines[i].split(" ");
+                    boolean error = false;
+                    //if (isNumeric(item[0])) {
+                    if (getDouble(item[0]) > 10000000 || item[0].trim().equals("N/A")) {
+                        if (item.length < 11) {
+                            //broken format. concatenate lines
+                            int j = 0;
+                            Concat:
+                            for (j = i + 1; j < lines.length; j++) {
+                                String[] subitem = lines[j].split(" ");
+                                if (subitem[0].equals("")||getDouble(subitem[0]) > 10000000 || item[0].trim().equals("N/A")) {
+                                    //we have found end of concatenation. break
+                                    break Concat;
+                                }
+                            }
+                            int counter = 1;
+                            String line = lines[i];
+                            while (i + counter < j) {
+                                line = line + " " + lines[i+counter];
+                                counter++;
+                            }
+                            item = line.split(" ");
+                            if (item.length < 11) {
+                                error = true;
+                                logger.log(Level.SEVERE, "Error importing fileName:{0},Line:{1}", new Object[]{fileName, lines[i]});
+
+                            }
+                        }
+                        if (!error) {
+                            Trade tr = new Trade();
+                            tr.fileName = fileName;
+                            tr.clientName = clientName;
+                            tr.tradeDate = contractDate;
+                            tr.contractNoteReference = reference;
+                            tr.tradeNumber = item[iTradeNumber];
+                            tr.orderTime = item[iOrderTime];
+                            tr.executionTime = item[iExecutionTime];
+                            tr.side = item[iSide].equals("BUY") ? "Buy" : "Sell";
+                            //find next numeric id
+                            int sizeIndex = iSymbol;
+                            for (int j = sizeIndex; j < item.length; j++) {
+                                if (isNumeric(item[j])||item[j].contains("INE")) {
+                                    if (j + 2 < item.length && isNumeric(item[j + 1])) {
+                                        sizeIndex = j;
+                                        break;
+                                    }
+                                }
+                            }
+                            //now setup indexes as we know the size of the symbol
+                            for (int counter = iSymbol; counter < sizeIndex; counter++) {
+                                tr.symbol = tr.symbol == null ? item[counter] : tr.symbol + item[counter];
+                            }
+                            int category = 0;
+                            category = tr.tradeDate.compareTo("20150421") < 0 ? 1 : 2;
+                            if(category==2){
+                            category = tr.tradeDate.compareTo("20151126") < 0 ? 2 : 3;                                
+                            }
+                            /*
+                             * 20150422: Contract note split other levies into two columns
+                             * 20151126: IB Added Swach Bharat Cess Column
+                             */
+                            switch (category) {
+                                case 1: //No swach Bharat Cess
+                                    tr.size = Math.abs(getInteger(item[sizeIndex]));
+                                    tr.price = getDouble(item[sizeIndex + 1]);
+                                    tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6]));//Other Levies
+                                    break;
+                                case 2: //No swach Bharat Cess
+                                    tr.size = Math.abs(getInteger(item[sizeIndex]));
+                                    tr.price = getDouble(item[sizeIndex + 1]);
+                                    tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 5]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6])) + Math.abs(getDouble(item[sizeIndex + 7]));//Stamp Duty + Exchange Charges
+                                    break;
+                                case 3: //with swach bharat cess
+                                    tr.size = Math.abs(getInteger(item[sizeIndex]));
+                                    tr.price = getDouble(item[sizeIndex + 1]);
+                                    tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4])) + Math.abs(getDouble(item[sizeIndex + 5]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 6]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 7])) + Math.abs(getDouble(item[sizeIndex + 8]));//Stamp Duty + Exchange Charges
+                                    break;
+                                default:
+                                    break;
+                            }
+                            tr.stt=tr.stt+tr.price*tr.size*0.01;
+                            writeTradesToFile(outputFileName, tr);
+                            if (mapping.get(tr.symbol) == null) {
+                                SimpleDateFormat sdfddMMMyy = new SimpleDateFormat("ddMMMyy");
+                                SimpleDateFormat sdfyyyyMMdd = new SimpleDateFormat("yyyyMMdd");
+                                Mapping m = new Mapping();
+                                m.brokerSymbol = tr.symbol;
+                                int brokSymbolLength = tr.symbol.length();
+                                    m.type = "STK";
+                                    m.nseSymbol = m.brokerSymbol.split("(?<=\\D)(?=\\d)|(?<=\\d)(?=\\D)")[0];
+                                //m.nseSymbol = symbolMapping.get(m.nseSymbol).split(",")[2];
+                                mapping.put(m.brokerSymbol, m.brokerSymbol + "," + m.nseSymbol + "," + m.expiry + "," + m.type + "," + m.right + "," + m.strike);
+                                //writeMappingToFile(mappingFileName, m);
+                            }
+                        }
+                    }
+                    //}
+                }
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, null, e);
+        }
+    }
+
 
     public static void importZerodha(String[] lines, String outputFileName, String mappingFileName, String inputFileName) throws IOException {
         try {
