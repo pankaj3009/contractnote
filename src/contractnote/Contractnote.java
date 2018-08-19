@@ -176,6 +176,31 @@ public class Contractnote {
         System.out.println("Input 6: Optional End Date formatted as yyyyMMdd");
     }
 
+        public static boolean isInteger(String str) {
+        if (str == null) {
+            return false;
+        }
+        str = str.trim();
+        int length = str.length();
+        if (length == 0) {
+            return false;
+        }
+        int i = 0;
+        if (str.charAt(0) == '-') {
+            if (length == 1) {
+                return false;
+            }
+            i = 1;
+        }
+        for (; i < length; i++) {
+            char c = str.charAt(i);
+            if ((c !='.'  && c!= ',' && c <= '/') || c >= ':') {
+                return false;
+            }
+        }
+        return true;
+    }
+        
     public static void importIBFNO(String[] lines, String outputFileName, String mappingFileName) throws IOException {
         try {
             if (fileName.contains("FO")) {
@@ -438,17 +463,33 @@ public class Contractnote {
                                     tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 6])) + Math.abs(getDouble(item[sizeIndex + 7]));//Stamp Duty + Exchange Charges
                                     break;
                                 case 3: //with swach bharat cess
+                                    //get size as the second integer value in item
+                                    int intcount=0;
+                                    sizeIndex=-1;
+                                    for(int a=0;a<item.length;a++){
+                                        if(isInteger(item[a])){
+                                            intcount=intcount+1;
+                                            if(intcount==3){
+                                                sizeIndex=a;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if(sizeIndex>=0){
                                     tr.size = Math.abs(getInteger(item[sizeIndex]));
                                     tr.price = getDouble(item[sizeIndex + 1]);
                                     tr.brokerage = Math.abs(getDouble(item[sizeIndex + 3]));
-                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4])) + Math.abs(getDouble(item[sizeIndex + 5]));//sizeIndex+5 = Swach Bharat Cess
-                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 6]));
-                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 7])) + Math.abs(getDouble(item[sizeIndex + 8]));//Stamp Duty + Exchange Charges
+                                    tr.serviceTax = Math.abs(getDouble(item[sizeIndex + 4])) + Math.abs(getDouble(item[sizeIndex + 5]))+Math.abs(getDouble(item[sizeIndex + 6]));//sizeIndex+5 = Swach Bharat Cess
+                                    tr.stt = Math.abs(getDouble(item[sizeIndex + 7]));
+                                    tr.otherLevies = Math.abs(getDouble(item[sizeIndex + 8])) + Math.abs(getDouble(item[sizeIndex + 9]));//Stamp Duty + Exchange Charges
+   
+                                    }
+                                    
                                     break;
                                 default:
                                     break;
                             }
-                            tr.stt=tr.stt+tr.price*tr.size*0.01;
+                            tr.stt=tr.stt+tr.price*tr.size*0.001;
                             writeTradesToFile(outputFileName, tr);
                             if (mapping.get(tr.symbol) == null) {
                                 SimpleDateFormat sdfddMMMyy = new SimpleDateFormat("ddMMMyy");
@@ -859,31 +900,6 @@ public class Contractnote {
             logger.log(Level.SEVERE, null, e);
             logger.log(Level.SEVERE, "Error:{0},Symbol:{1}", new Object[]{e, inputFileName});
         }
-    }
-
-    public static boolean isInteger(String str) {
-        if (str == null || str.isEmpty()) {
-            return false;
-        }
-        str = str.trim();
-        int length = str.length();
-        if (length == 0) {
-            return false;
-        }
-        int i = 0;
-        if (str.charAt(0) == '-') {
-            if (length == 1) {
-                return false;
-            }
-            i = 1;
-        }
-        for (; i < length; i++) {
-            char c = str.charAt(i);
-            if ((c <= '/' || c >= ':') && c != '.') {
-                return false;
-            }
-        }
-        return true;
     }
 
     public static void writeTradesToFile(String filename, Trade tr) throws IOException {
